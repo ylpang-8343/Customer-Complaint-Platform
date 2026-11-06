@@ -25,6 +25,18 @@ Open http://127.0.0.1:8000/. Every demo user has the password `demo-pass-123`:
 Create a real administrator with `manage.py createsuperuser`. Run `manage.py seed` (without
 `--demo`) on a production install to load the factories, complaint types and lab tests.
 
+## Screenshots
+
+Taken from the running app with the demo data (`docs/img/`):
+
+| | |
+|---|---|
+| Sign in, and a failed sign-in | `01-login.png`, `02-login-error.png` |
+| Home page for a PIC, a lodger and the Coordinator | `03-home-pic.png`, `04-home-lodger.png`, `05-home-coordinator.png` |
+| Settings refused to a non-Coordinator | `06-settings-denied.png` |
+| The Coordinator's Settings: home, complaint types, sub-types, factory PICs, lab tests, saving a change | `07` to `12` |
+| Audit log and one entry showing who changed what | `13-audit-log.png`, `14-audit-entry-detail.png` |
+
 ## Tests
 
 ```powershell

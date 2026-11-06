@@ -3,9 +3,10 @@
 <section class="card">
   <h1>Customer complaints</h1>
   <p>Signed in as <strong>{{ user.get_full_name|default:user.username }}</strong>, {{ user.get_role_display }}.</p>
-  <p>You can see complaints of:
-    {% if user.sees_all_factories %}all factories.
-    {% else %}{% for f in factories %}{{ f.name }}{% if not forloop.last %}, {% endif %}{% empty %}the complaints you lodged.{% endfor %}{% endif %}
+  <p>
+    {% if user.sees_all_factories %}You can see the complaints of all factories.
+    {% elif factories %}You can see the complaints of {% for f in factories %}{{ f.name }}{% if not forloop.last %}, {% endif %}{% endfor %}, and any you lodged.
+    {% else %}You can see the complaints you lodged.{% endif %}
   </p>
   <p class="muted">Lodging and handling of complaints is built in the next steps.</p>
 </section>

@@ -37,3 +37,15 @@ def test_actor_is_recorded_for_admin_edits(client, seeded):
     entry = AuditLog.objects.get(object_repr="Peroxide value")
     assert entry.actor.username == "mr"
     assert entry.changes == {"name": ["PV", "Peroxide value"]}
+
+
+def test_home_says_what_each_role_can_see(client, seeded):
+    expected = {
+        "mr": b"complaints of all factories",
+        "fa.pic": b"complaints of Factory A, and any you lodged",
+        "sales": b"complaints you lodged.",
+    }
+    for username, text in expected.items():
+        client.login(username=username, password="demo-pass-123")
+        assert text in client.get(reverse("home")).content
+        client.logout()
