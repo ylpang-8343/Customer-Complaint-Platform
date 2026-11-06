@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if complaint %}Draft {{ complaint.reference }}{% else %}New complaint{% endif %}{% endblock %}
+{% block page_title %}{% if complaint %}Draft {{ complaint.reference }} — Customer Complaint Form{% else %}New Customer Complaint Form{% endif %}{% endblock %}
+{% block scope %}Any employee can lodge a complaint — your details come from your profile{% endblock %}
+{% block content %}
+{% if form.non_field_errors %}
+<div class="alert error" role="alert">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" id="complaint-form" novalidate
+      action="{% if complaint %}{% url 'complaint_edit' complaint.pk %}{% else %}{% url 'complaint_new' %}{% endif %}">
+  {% csrf_token %}
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Lodging information</h2>
+    <div class="grid">
+      {% if complaint %}
+        {% include "complaints/_auto.html" with label="Date and time lodged" value=complaint.created_at|date:"j M Y, H:i" note="auto" %}
+      {% else %}
+        {% now "j M Y, H:i" as now_text %}
+        {% include "complaints/_auto.html" with label="Date and time lodged" value=now_text note="auto (now)" %}
+      {% endif %}
+      {% include "complaints/_auto.html" with label="Lodged by" value=lodger.get_full_name|default:lodger.username note="from profile" %}
+      {% include "complaints/_auto.html" with label="Department" value=lodger_department note="from profile" %}
+      {% if complaint %}
+        {% include "complaints/_auto.html" with label="Complaint reference" value=complaint.reference note="auto" %}
+      {% else %}
+        {% include "complaints/_auto.html" with label="Complaint reference" value="" note="given when first saved" %}
+      {% endif %}
+      {% include "complaints/_field.html" with field=form.factory %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Complaint</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.buyer %}
+      {% include "complaints/_field.html" with field=form.contract_number %}
+      {% include "complaints/_field.html" with field=form.product_name %}
+      {% include "complaints/_field.html" with field=form.delivery_date %}
+      {% include "complaints/_field.html" with field=form.do_reference %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">C</span> Packing and quantity</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.packing_type %}
+      {% include "complaints/_field.html" with field=form.pack_size %}
+      {% include "complaints/_field.html" with field=form.affected_quantity %}
+      {% include "complaints/_field.html" with field=form.quantity_unit %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">D</span> Transport</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.transport_type %}
+      {% include "complaints/_field.html" with field=form.vessel_name %}
+      {% include "complaints/_field.html" with field=form.vehicle_number %}
+      {% include "complaints/_field.html" with field=form.container_number %}
+      {% include "complaints/_field.html" with field=form.loading_port %}
+      {% include "complaints/_field.html" with field=form.discharge_port %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">E</span> What went wrong</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.complaint_type %}
+      {% include "complaints/_field.html" with field=form.complaint_sub_type %}
+      {% include "complaints/_field.html" with field=form.type_details %}
+      {% include "complaints/_field.html" with field=form.sample_sent %}
+      {% include "complaints/_field.html" with field=form.description span=True %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">F</span> Contact at the buyer</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.contact_person %}
+      {% include "complaints/_field.html" with field=form.contact_email %}
+      {% include "complaints/_field.html" with field=form.contact_phone %}
+      {% include "complaints/_field.html" with field=form.contact_fax %}
+      {% include "complaints/_field.html" with field=form.complaint_method %}
+    </div>
+    <p class="footnote">The reply to the customer is sent by email, so the email address is mandatory.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">G</span> Supporting documents and pictures</h2>
+    {% if attachments %}
+    <ul class="files">
+      {% for a in attachments %}
+      <li>
+        <a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>
+        <span class="muted">{{ a.size|filesizeformat }}</span>
+        <button type="submit" class="link danger" formaction="{% url 'attachment_delete' a.pk %}" formnovalidate>Remove</button>
+      </li>
+      {% endfor %}
+      <li class="muted">Removing a file reloads the page, so save your changes first.</li>
+    </ul>
+    {% endif %}
+    {% include "complaints/_field.html" with field=form.attachments %}
+  </section>
+
+  <div class="form-actions">
+    <p>Save as a draft at any time. Fields marked <span class="req">*</span> must be filled in before the complaint can be submitted to the Coordinator.</p>
+    <button type="submit" name="save" class="button">Save draft</button>
+    <button type="submit" name="submit" class="button primary">Submit to Coordinator</button>
+  </div>
+</form>
+{{ form_config|json_script:"form-config" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/complaint_form.js' %}"></script>{% endblock %}

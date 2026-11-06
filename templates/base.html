@@ -7,16 +7,48 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
-  <header class="topbar">
-    <strong>BEST Group · Complaint Platform</strong>
-    {% if user.is_authenticated %}
-    <nav>
+{% block shell %}
+{% with current=request.resolver_match.url_name %}
+<div class="app">
+  <aside class="sidebar">
+    <a class="logo" href="{% url 'home' %}"><span class="logo-chip">BEST</span><span class="logo-name">Complaints</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="{% url 'home' %}"{% if current == 'home' or current == 'complaint_detail' %} class="active" aria-current="page"{% endif %}>My complaints</a>
+      <a href="{% url 'complaint_new' %}"{% if current == 'complaint_new' or current == 'complaint_edit' %} class="active" aria-current="page"{% endif %}>New complaint</a>
+      <a href="{% url 'help' %}"{% if current == 'help' %} class="active" aria-current="page"{% endif %}>Help</a>
       {% if user.is_staff %}<a href="{% url 'admin:index' %}">Settings</a>{% endif %}
-      <span class="pill">{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}{% if user.factory %} · {{ user.factory.code }}{% endif %}</span>
-      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link">Sign out</button></form>
     </nav>
-    {% endif %}
-  </header>
-  <main>{% block content %}{% endblock %}</main>
+    <div class="whoami">
+      <strong>Signed in as</strong>
+      {{ user.get_full_name|default:user.username }}<br>
+      {% if user.department %}{{ user.department }}{% endif %}{% if user.factory %}{% if user.department %} · {% endif %}{{ user.factory.name }}{% endif %}{% if user.department or user.factory %}<br>{% endif %}
+      Role: {{ user.get_role_display }}
+    </div>
+  </aside>
+
+  <div class="content-area">
+    <header class="topbar">
+      <h1>{% block page_title %}Customer complaints{% endblock %}</h1>
+      <div class="topbar-right">
+        <a class="help-circle" href="{% url 'help' %}" title="Help" aria-label="Help">?</a>
+        <span class="pill">{{ user.get_full_name|default:user.username }}{% if user.department %} · {{ user.department }}{% endif %}</span>
+        <span><a href="{% url 'help' %}">Help</a> <span class="divider">|</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link">Sign out</button></form></span>
+      </div>
+    </header>
+    <div class="scope">{% block scope %}{% endblock %}</div>
+    <main>
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}
+{% block scripts %}{% endblock %}
 </body>
 </html>

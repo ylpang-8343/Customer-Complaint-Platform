@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Help{% endblock %}
+{% block page_title %}Help — Complaint Platform User Guide{% endblock %}
+{% block scope %}A quick guide to lodging and tracking complaints{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 class="section-title">Guides for your role</h2>
+  <p class="muted">The guide that matches your sign-in role is highlighted, but every guide is open to everyone.</p>
+  <div class="guides">
+    {% for key, title, description, who in guides %}
+    <div class="guide{% if key == my_guide %} mine{% endif %}">
+      <h3>{{ title }}{% if key == my_guide %} <span class="tag mine">Your role</span>{% endif %}</h3>
+      <p>{{ description }}</p>
+      <span class="tag">{{ who }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card howto">
+  <h2 class="section-title">How do I…?</h2>
+  <label class="muted" for="task-search">Search every step-by-step task: type a few words of what you want to do.</label>
+  <input type="search" id="task-search" placeholder="e.g. attach, draft, submit, reference...">
+  <p class="footnote"><span id="task-count">{{ tasks|length }}</span> task(s)</p>
+  <div id="tasks">
+    {% for question, answer in tasks %}
+    <details>
+      <summary>{{ question }}</summary>
+      {% for paragraph in answer %}<p>{{ paragraph }}</p>{% endfor %}
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/help.js' %}"></script>{% endblock %}

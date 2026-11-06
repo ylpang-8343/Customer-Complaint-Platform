@@ -8,7 +8,7 @@ class ComplaintsConfig(AppConfig):
     def ready(self):
         from audit.registry import register
 
-        from .models import ComplaintMethod, ComplaintSubType, ComplaintType, LabTest
+        from .models import Attachment, Complaint, ComplaintMethod, ComplaintSubType, ComplaintType, LabTest
 
-        for model in (ComplaintType, ComplaintSubType, LabTest, ComplaintMethod):
+        for model in (ComplaintType, ComplaintSubType, LabTest, ComplaintMethod, Complaint, Attachment):
             register(model)

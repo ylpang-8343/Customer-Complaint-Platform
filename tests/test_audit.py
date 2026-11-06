@@ -55,6 +55,21 @@ def test_passwords_never_appear_in_the_log(user_of):
         assert "last_login" not in entry.changes
 
 
+def test_uploaded_files_are_logged_by_stored_name(user_of):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from complaints.models import Attachment, Complaint
+
+    sales = user_of("sales")
+    complaint = Complaint.objects.create(lodged_by=sales, factory=Factory.objects.get(code="FA"))
+    attachment = Attachment.objects.create(
+        complaint=complaint, file=SimpleUploadedFile("photo.png", b"x"), original_name="photo.png", uploaded_by=sales
+    )
+    entry = AuditLog.objects.get(object_repr="photo.png", action="created")
+    assert entry.changes["file"][1] == attachment.file.name
+    assert entry.changes["file"][1].startswith(f"attachments/{complaint.pk}/")
+
+
 def test_entries_are_append_only(user_of):
     entry = AuditLog.objects.first()
     with pytest.raises(PermissionError):

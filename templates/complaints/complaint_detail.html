@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ complaint.reference }}{% endblock %}
+{% block page_title %}{{ complaint.reference }} — {{ complaint.complaint_sub_type|default:complaint.complaint_type|default:"Customer complaint" }}{% endblock %}
+{% block scope %}{% if complaint.is_draft %}Draft — only you can see it, and only you can change it.{% else %}Submitted — read-only. The Coordinator has been asked to assign it.{% endif %}{% endblock %}
+{% block content %}
+<div class="title-row">
+  <h2>{{ complaint.reference }}</h2>
+  <span class="status status-{{ complaint.status }}">{{ complaint.get_status_display }}</span>
+  <span style="margin-left:auto">
+    <a class="button" href="{% url 'home' %}">Back to list</a>
+    {% if can_edit %}<a class="button primary" href="{% url 'complaint_edit' complaint.pk %}">Continue editing</a>{% endif %}
+  </span>
+</div>
+
+{% for title, rows in sections %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">{{ forloop.counter0|add:1 }}</span> {{ title }}</h2>
+  <dl class="facts">
+    {% for label, text in rows %}
+    <div{% if title == "Description" %} class="wide"{% endif %}><dt>{{ label }}</dt><dd>{% if text %}{{ text|linebreaksbr }}{% else %}<span class="muted">—</span>{% endif %}</dd></div>
+    {% endfor %}
+  </dl>
+</section>
+{% endfor %}
+
+<section class="card">
+  <h2 class="section-title"><span class="badge">{{ sections|length|add:1 }}</span> Supporting documents and pictures</h2>
+  {% if attachments %}
+  <ul class="files">
+    {% for a in attachments %}
+    <li><a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a> <span class="muted">{{ a.size|filesizeformat }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No files attached.</p>
+  {% endif %}
+</section>
+{% endblock %}

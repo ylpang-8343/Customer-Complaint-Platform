@@ -112,6 +112,11 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# Uploaded files are served only through views that check access, never straight from MEDIA_ROOT.
+ATTACHMENT_MAX_MB = int(os.environ.get("ATTACHMENT_MAX_MB", "10"))
+
+# The address people use to reach the platform, used for the links in emails.
+SITE_URL = os.environ.get("SITE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

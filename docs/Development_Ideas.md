@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build step 1 (foundation, Section 7) is done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation) and 2 (lodging) of Section 7 are done; see the README for how to run it.
 
 ## 1. Approach
 
@@ -21,7 +21,7 @@ Decisions made so far:
 |---|---|---|
 | Backend | Django | Built-in auth, permissions, forms, migrations and file uploads. |
 | Admin | Django admin | The MR maintains complaint types, lab tests, PIC lists and reminder days without IT (Section 8, "drop-down lists the MR can maintain"). |
-| UI | Django templates + HTMX, with a small hand-written stylesheet (Tailwind CSS may replace it later) | Conditional fields (Pack size, Vessel/Container, Others) without a heavy SPA. Matches the mockups in Figures 2–11. The plain stylesheet avoids a CDN or a Node build step for now. |
+| UI | Django templates, a small vanilla JavaScript file for the conditional form fields, and a hand-written stylesheet (HTMX or Tailwind CSS may be added later) | Conditional fields (Pack size, Vessel/Container, Others) without a heavy SPA. The server enforces the same rules, so the form works without the script. Avoids a CDN or a Node build step for now. |
 | Database | SQLite in dev, PostgreSQL in production | No setup now, easy switch later. |
 | Email | SMTP; Mailpit locally | Every notification can be tested without sending real mail. |
 | PDF | ReportLab (or xhtml2pdf) | Complaint summary PDF, SCAR from template, audit export in the layout of the current report. |

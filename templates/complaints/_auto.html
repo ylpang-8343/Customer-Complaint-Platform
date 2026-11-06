@@ -1,0 +1,4 @@
+<div class="field">
+  <span class="label">{{ label }}</span>
+  <div class="auto-field">{% if value %}{{ value }}{% if note %} — {{ note }}{% endif %}{% else %}{{ note|default:"—" }}{% endif %}</div>
+</div>

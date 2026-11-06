@@ -1,0 +1,7 @@
+{% autoescape off %}Customer complaint {{ complaint.reference }} has been submitted and is waiting for you to assign it to the PIC(s).
+
+{% for title, rows in sections %}{{ title|upper }}
+{% for label, text in rows %}{% if text %}{{ label }}: {{ text }}
+{% endif %}{% endfor %}
+{% endfor %}Open the full complaint: {{ url }}
+{% endautoescape %}

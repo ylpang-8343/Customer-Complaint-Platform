@@ -32,10 +32,16 @@ Taken from the running app with the demo data (`docs/img/`):
 | | |
 |---|---|
 | Sign in, and a failed sign-in | `01-login.png`, `02-login-error.png` |
-| Home page for a PIC, a lodger and the Coordinator | `03-home-pic.png`, `04-home-lodger.png`, `05-home-coordinator.png` |
+| The complaint list for a Factory A PIC, a Factory B user and the Coordinator | `03-home-pic.png`, `04-home-other-factory.png`, `05-home-coordinator.png` |
 | Settings refused to a non-Coordinator | `06-settings-denied.png` |
 | The Coordinator's Settings: home, complaint types, sub-types, factory PICs, lab tests, saving a change | `07` to `12` |
 | Audit log and one entry showing who changed what | `13-audit-log.png`, `14-audit-entry-detail.png` |
+| Lodging: blank form, saved draft with its reference number, a submit with fields missing, the submitted complaint, the list | `15` to `19` |
+| Help page, a filtered list, and the phone-width list and form | `21-help.png`, `22-home-filtered.png`, `23-mobile-list.png`, `24-mobile-form.png` |
+
+The settings and audit-log pages (`06` to `14`) are Django's standard admin site and are not
+restyled. Everything else uses the shared layout in `templates/base.html` and
+`static/css/app.css`; the colours are variables at the top of that file.
 
 ## Tests
 
@@ -49,3 +55,8 @@ Taken from the running app with the demo data (`docs/img/`):
 `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_HOST` / `POSTGRES_PORT`,
 `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS`,
 `DEFAULT_FROM_EMAIL`. Without `EMAIL_HOST`, emails are printed to the console.
+`SITE_URL` is the address people use to reach the platform; it builds the links in emails
+(default `http://127.0.0.1:8000`). `ATTACHMENT_MAX_MB` limits each uploaded file (default 10).
+
+Uploaded files are stored under `media/` and are served only through the platform, which checks
+that the user may see the complaint. Do not expose `media/` directly from the web server.

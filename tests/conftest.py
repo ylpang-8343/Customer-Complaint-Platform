@@ -8,6 +8,11 @@ def fast_password_hashing(settings):
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
+@pytest.fixture(autouse=True)
+def temporary_media(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path / "media"
+
+
 @pytest.fixture
 def seeded(db):
     call_command("seed", "--demo", verbosity=0)

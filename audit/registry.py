@@ -6,6 +6,7 @@ management commands and scheduled jobs.
 """
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models.fields.files import FieldFile
 from django.db.models.signals import post_delete, post_save, pre_save
 
 from .context import get_actor
@@ -23,8 +24,13 @@ def register(model, exclude=()):
     post_delete.connect(_log_delete, sender=model, dispatch_uid=f"{uid}-del")
 
 
+def _plain(value):
+    # A file field holds a FieldFile; the log keeps just its stored name.
+    return value.name if isinstance(value, FieldFile) else value
+
+
 def _values(instance, fields):
-    return {name: getattr(instance, name) for name in fields}
+    return {name: _plain(getattr(instance, name)) for name in fields}
 
 
 def _write(instance, action, changes):
