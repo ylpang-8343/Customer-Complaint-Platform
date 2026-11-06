@@ -1,0 +1,22 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Complaint Platform{% endblock %} · BEST Group</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <strong>BEST Group · Complaint Platform</strong>
+    {% if user.is_authenticated %}
+    <nav>
+      {% if user.is_staff %}<a href="{% url 'admin:index' %}">Settings</a>{% endif %}
+      <span class="pill">{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}{% if user.factory %} · {{ user.factory.code }}{% endif %}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link">Sign out</button></form>
+    </nav>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
