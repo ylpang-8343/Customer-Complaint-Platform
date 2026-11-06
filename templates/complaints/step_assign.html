@@ -1,0 +1,35 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}{% if complaint.assignments.exists %}Change the PICs{% else %}Assign the PICs{% endif %}{% endblock %}
+{% block step_scope %}Coordinator — choose who investigates. Each new PIC is emailed the reference number, a PDF summary and a link.{% endblock %}
+{% block step %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Coordinator section</h2>
+    <div class="grid">
+      {% include "complaints/_auto.html" with label="Received by" value=complaint.received_by|default:user note="set when you assign" %}
+      {% if complaint.acknowledged_at %}
+        {% include "complaints/_auto.html" with label="Acknowledgement date" value=complaint.acknowledged_at|date:"j M Y, H:i" note="auto" %}
+      {% else %}
+        {% include "complaints/_auto.html" with label="Acknowledgement date" value="" note="set when you assign" %}
+      {% endif %}
+      {% include "complaints/_field.html" with field=form.pics span=True %}
+      {% if form.needs_lab %}<p class="footnote span-2">A sample was sent to the factory, so include the laboratory PIC: only laboratory staff can fill in the laboratory section.</p>{% endif %}
+      {% include "complaints/_field.html" with field=form.remarks span=True %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Attachments</h2>
+    {% include "complaints/_files.html" with files=attachments removable=True %}
+    {% include "complaints/_field.html" with field=form.attachments %}
+  </section>
+
+  <div class="form-actions">
+    <p>The platform records you as the person who received the complaint, and emails each newly chosen PIC.</p>
+    <button type="submit" class="button primary">Assign and send</button>
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Cancel</a>
+    {% if user.role == "coordinator" %}<a class="button" href="{% url 'complaint_delete' complaint.pk %}">Delete this complaint…</a>{% endif %}
+  </div>
+</form>
+{% endblock %}

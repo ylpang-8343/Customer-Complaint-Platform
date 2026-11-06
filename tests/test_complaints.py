@@ -273,7 +273,7 @@ def test_submission_still_works_when_the_email_cannot_be_sent(as_user, monkeypat
     def broken(*args, **kwargs):
         raise OSError("mail server down")
 
-    monkeypatch.setattr("complaints.emails.send_mail", broken)
+    monkeypatch.setattr("complaints.emails.EmailMessage.send", broken)
     response = lodge(as_user("sales"), submit="1")
     assert response.status_code == 302
     assert Complaint.objects.get().status == Complaint.Status.SUBMITTED

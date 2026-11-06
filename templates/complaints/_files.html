@@ -1,0 +1,11 @@
+{% if files %}
+<ul class="files">
+  {% for a in files %}
+  <li>
+    <a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>
+    <span class="muted">{{ a.size|filesizeformat }}{% if a.uploaded_by %} · {{ a.uploaded_by }}{% endif %} · {{ a.uploaded_at|date:"j M Y" }}</span>
+    {% if removable and a.uploaded_by_id == user.pk %}<button type="submit" class="link danger" formaction="{% url 'attachment_delete' a.pk %}" formnovalidate>Remove</button>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

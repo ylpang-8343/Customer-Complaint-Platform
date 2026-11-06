@@ -1,0 +1,29 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}Reply to the customer{% endblock %}
+{% block step_scope %}PIC — check the email built from the template, edit it if needed and send it.{% endblock %}
+{% block step %}
+{% if problems %}
+<div class="alert error" role="alert"><ul class="errorlist">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>
+{% endif %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Email to the customer</h2>
+    <div class="grid">
+      {% include "complaints/_auto.html" with label="To" value=complaint.contact_email note="from the complaint" %}
+      {% include "complaints/_auto.html" with label="Copy to you" value=user.email note="from profile" %}
+      {% include "complaints/_field.html" with field=form.subject span=True %}
+      {% include "complaints/_field.html" with field=form.body span=True %}
+    </div>
+    <p class="footnote">The text takes the findings, the corrective and preventive action and the FM's approval from the complaint. When it is sent, a copy is kept and the HOD, FM and Coordinator are told.</p>
+  </section>
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Supporting documents</h2>
+    {% include "complaints/_field.html" with field=form.attachments %}
+  </section>
+  <div class="form-actions">
+    <button type="submit" class="button primary"{% if problems %} disabled{% endif %}>Send to customer</button>
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

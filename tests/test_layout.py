@@ -20,10 +20,11 @@ def test_stat_tiles_count_what_the_user_can_see(as_user):
     lodge(sales, save="1")  # a draft
     lodge(sales, submit="1", factory=Factory.objects.get(code="FB").pk)
 
-    assert kpis(sales.get(reverse("home")).content.decode()) == [3, 1, 2]  # seen, drafts, submitted
-    # The Coordinator sees the two submitted complaints and not the draft.
+    # seen, drafts, waiting for my action. A lodger has nothing to do once the complaint is submitted.
+    assert kpis(sales.get(reverse("home")).content.decode()) == [3, 1, 0]
+    # The Coordinator sees the two submitted complaints and not the draft, and both wait for them.
     assert kpis(as_user("mr").get(reverse("home")).content.decode()) == [2, 0, 2]
-    assert kpis(as_user("fb.pic").get(reverse("home")).content.decode()) == [1, 0, 1]
+    assert kpis(as_user("fb.pic").get(reverse("home")).content.decode()) == [1, 0, 0]
 
 
 def test_list_filters(as_user):

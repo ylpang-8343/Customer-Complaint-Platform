@@ -1,0 +1,16 @@
+{% autoescape off %}{{ intro }}
+
+Complaint: {{ complaint.reference }}
+Factory: {{ complaint.factory }}
+Buyer: {{ complaint.buyer }}
+Product: {{ complaint.product_name }}
+Type: {{ complaint_type }}
+Status now: {{ complaint.status_label }}
+{% if comment %}
+{{ comment_label }}:
+{{ comment }}
+{% endif %}{% if details %}
+{{ details }}
+{% endif %}
+Open the complaint: {{ url }}
+{% endautoescape %}

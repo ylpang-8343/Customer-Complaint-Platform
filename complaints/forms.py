@@ -62,18 +62,23 @@ class ComplaintFilterForm(forms.Form):
         queryset=Factory.objects.all(), required=False, empty_label="All factories"
     )
     status = forms.ChoiceField(
-        required=False, choices=[("", "All statuses"), *Complaint.Status.choices]
+        required=False, choices=[("", "All statuses"), *Complaint.Status.choices, ("deleted", "Deleted")]
     )
+    mine = forms.BooleanField(required=False, label="Waiting for my action")
     date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     q = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": "Reference, buyer, product, contract..."}))
 
-    def apply(self, queryset):
+    def apply(self, queryset, waiting_for_me=None):
         data = self.cleaned_data
         if data.get("factory"):
             queryset = queryset.filter(factory=data["factory"])
-        if data.get("status"):
-            queryset = queryset.filter(status=data["status"])
+        if data.get("status") == "deleted":
+            queryset = queryset.filter(deleted_at__isnull=False)
+        elif data.get("status"):
+            queryset = queryset.filter(status=data["status"], deleted_at__isnull=True)
+        if data.get("mine") and waiting_for_me is not None:
+            queryset = queryset.filter(waiting_for_me)
         if data.get("date_from"):
             queryset = queryset.filter(created_at__date__gte=data["date_from"])
         if data.get("date_to"):

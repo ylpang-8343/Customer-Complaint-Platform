@@ -1,0 +1,17 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}Upload the returned SCAR{% endblock %}
+{% block step_scope %}PIC — the SCAR is back from the external party. Upload it to unlock Submit to HOD.{% endblock %}
+{% block step %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Returned SCAR</h2>
+    <p>Issued to <strong>{{ scar.party_name }}</strong> ({{ scar.get_party_type_display }}) on {{ scar.issued_at|date:"j M Y" }}. <a href="{% url 'scar_pdf' scar.pk %}">SCAR PDF</a></p>
+    {% include "complaints/_field.html" with field=form.file %}
+  </section>
+  <div class="form-actions">
+    <button type="submit" class="button primary">Upload returned SCAR</button>
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

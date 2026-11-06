@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build steps 1 (foundation) and 2 (lodging) of Section 7 are done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation), 2 (lodging) and 3 (workflow) of Section 7 are done; see the README for how to run it.
 
 ## 1. Approach
 
@@ -59,7 +59,7 @@ Access depends on role and factory. The Coordinator and top management see all f
 - **Investigation:** root cause, correction, corrective action, respondent PIC.
 - **LabSection / LabResult:** opens only when Sample sent = Yes. The test list (FFA, M&I, PV, IV, Colour, Appearance and odour) is configurable.
 - **SCAR:** reference number (same as the complaint's), party type, issued-to, contact email, dates, generated PDF, returned file.
-- **Review:** every HOD, FM and Coordinator decision with comment, to keep the history of the repeat cycle.
+- **ComplaintEvent** (built instead of a separate Review model): every step with who did it, when, the status before and after, and any comment. HOD returns, FM rejections and "not effective" results are events, so the repeat cycle keeps its full history.
 - **CustomerReply:** saved copy of the sent email, with sent date.
 - **Verification:** first and second verified dates, results, effective yes/no, closed date and closed by.
 - **Attachment** and **AuditLog** (who changed what and when).
@@ -105,9 +105,9 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 
 ## 7. Build order
 
-1. **Foundation:** project setup, users and roles, factory-scoped access, audit log, MR-maintained settings, seed data for the five factories.
-2. **Lodging:** complaint form, conditional fields, draft/submit validation, reference numbers.
-3. **Workflow:** assignment, PIC investigation, lab section, SCAR, HOD review, FM approval, customer reply, closing, with the emails for each step.
+1. **Foundation (done):** project setup, users and roles, factory-scoped access, audit log, MR-maintained settings, seed data for the five factories.
+2. **Lodging (done):** complaint form, conditional fields, draft/submit validation, reference numbers.
+3. **Workflow (done):** assignment, PIC investigation, lab section, SCAR, HOD review, FM approval, customer reply, closing, with the emails for each step.
 4. **Reminders** and notification log.
 5. **Dashboard and complaint log** with Excel export.
 6. **PDF export** in the layout of the current report, and the 6-month historical import from a spreadsheet template.
@@ -128,6 +128,14 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 | Open point 8: who keeps the PIC email list. | Coordinator, with each factory naming its PICs. |
 | Open point 9: HOD decision after SCAR. | HOD decides after the SCAR is received. The SCAR stays in the record even if the complaint is Invalid. |
 | Open point 10: verified dates without CAR numbers. | Still recorded by the Coordinator when closing. |
+| Step 3: the reply is held until "any SCAR is back and the FM has approved". | A SCAR can only be pending before the HOD stage, so the check is made again when the PIC sends the reply, against the latest SCAR. |
+| Step 4: the laboratory section must be "complete" before the PIC submits. | When a sample was sent, the lab acknowledgement date and at least one test result are required. Only laboratory staff among the assigned PICs can fill it in, so the Coordinator is asked to include one. |
+| Step 4a: SCAR contents. | The PIC chooses the party type (supplier, transporter, other), name and email. The wording comes from a template the PIC can edit; the PDF carries the complaint details but not the buyer's name. If the SCAR email cannot be sent, nothing changes. Re-issuing is allowed after an FM rejection, and the latest SCAR counts. |
+| Step 5: the HOD of a factory. | Any HOD of the complaint's factory can act; if a HOD is away, the deputy gets the email and can act. The FM is the factory's default FM, or its deputy while away. |
+| Step 7: who the customer reply goes to. | The email address on the complaint, with a copy to the PIC who sends it. If it cannot be sent the status does not change. The lodger is not emailed. |
+| Step 8: closing. | The first verified date and its result are required to close; the second check is optional. "Not effective" needs a comment and goes back to PIC investigation. |
+| Deleting. | The Coordinator can delete any submitted complaint (never a draft). It keeps its stage, shows as Deleted with the reason, and no further action is possible. Nobody is emailed. |
+| PDF summary. | A simple summary PDF is built now (ReportLab) for the assignment email. Step 6 replaces it with the layout of the current report. |
 
 ## 9. Quality and risks
 

@@ -33,7 +33,7 @@ def summary_sections(complaint):
             "Lodged",
             [
                 ("Reference", c.reference),
-                ("Status", c.get_status_display()),
+                ("Status", c.status_label),
                 ("Factory", str(c.factory or "")),
                 ("Lodged by", f"{c.lodged_by}, {c.lodger_department}".rstrip(", ")),
                 ("Lodged on", _datetime(c.created_at)),

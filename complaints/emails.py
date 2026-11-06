@@ -1,12 +1,12 @@
-"""Emails sent by the platform. Each function returns the number of emails sent."""
+"""Emails sent by the platform. Each function returns the number of emails sent (0 if nobody could be told)."""
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from accounts.models import Role, User
-
+from . import people
+from .pdf import complaint_summary_pdf, scar_pdf
 from .summary import summary_sections
 
 
@@ -14,26 +14,180 @@ def complaint_url(complaint):
     return settings.SITE_URL + reverse("complaint_detail", args=[complaint.pk])
 
 
-def coordinator_emails():
-    return list(
-        User.objects.filter(role=Role.COORDINATOR, is_active=True)
-        .exclude(email="")
-        .values_list("email", flat=True)
+def _addresses(users):
+    seen, result = set(), []
+    for user in users:
+        if user is not None and user.email and user.email.lower() not in seen:
+            seen.add(user.email.lower())
+            result.append(user.email)
+    return result
+
+
+def _send(subject, body, to, cc=(), attachments=(), reply_to=()):
+    to = list(dict.fromkeys(to))
+    if not to:
+        return 0
+    cc = [address for address in dict.fromkeys(cc) if address not in to]
+    message = EmailMessage(
+        subject=subject, body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=to, cc=cc, reply_to=list(reply_to)
     )
+    for name, content, mime in attachments:
+        message.attach(name, content, mime)
+    return message.send()
 
 
+def _notice(complaint, subject, intro, to, cc=(), comment="", comment_label="Comment", details="", attach_summary=False):
+    body = render_to_string(
+        "email/notice.txt",
+        {
+            "complaint": complaint,
+            "complaint_type": " / ".join(
+                part for part in (str(complaint.complaint_type or ""), str(complaint.complaint_sub_type or "")) if part
+            ),
+            "intro": intro,
+            "comment": comment,
+            "comment_label": comment_label,
+            "details": details,
+            "url": complaint_url(complaint),
+        },
+    )
+    attachments = []
+    if attach_summary:
+        attachments.append(
+            (f"{complaint.reference.replace('/', '-')}-summary.pdf", complaint_summary_pdf(complaint), "application/pdf")
+        )
+    return _send(subject, body, to, cc, attachments)
+
+
+# Step 2
 def notify_coordinator_of_submission(complaint):
-    """Step 2: when the form is submitted, the platform emails the Coordinator."""
-    recipients = coordinator_emails()
+    """When the form is submitted, the platform emails the Coordinator."""
+    recipients = _addresses(people.coordinators())
     if not recipients:
         return 0
     body = render_to_string(
         "email/complaint_submitted.txt",
         {"complaint": complaint, "sections": summary_sections(complaint), "url": complaint_url(complaint)},
     )
-    return send_mail(
-        subject=f"Customer complaint {complaint.reference} submitted for assignment",
-        message=body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=recipients,
+    return _send(f"Customer complaint {complaint.reference} submitted for assignment", body, recipients)
+
+
+# Step 3
+def notify_pics_of_assignment(complaint, assigned_users, coordinator, remarks=""):
+    return _notice(
+        complaint,
+        f"Customer complaint {complaint.reference} assigned to you for investigation",
+        f"{coordinator} has assigned this customer complaint to you. A PDF summary is attached.",
+        _addresses(assigned_users),
+        comment=remarks,
+        comment_label="Remarks from the Coordinator",
+        attach_summary=True,
+    )
+
+
+# Step 4
+def notify_hod_of_findings(complaint, pic):
+    return _notice(
+        complaint,
+        f"Complaint {complaint.reference}: investigation findings for your review",
+        f"{pic} has submitted the investigation findings. Please decide whether the complaint is valid.",
+        _addresses(people.hods(complaint)),
+    )
+
+
+# Step 4a
+def send_scar(scar):
+    complaint = scar.complaint
+    pdf = (f"SCAR-{complaint.reference.replace('/', '-')}.pdf", scar_pdf(scar), "application/pdf")
+    return _send(
+        scar.subject,
+        scar.message,
+        [scar.contact_email],
+        cc=_addresses([scar.issued_by]),
+        attachments=[pdf],
+        reply_to=_addresses([scar.issued_by]),
+    )
+
+
+# Step 5
+def notify_pics_of_hod_return(complaint, hod, comment):
+    return _notice(
+        complaint,
+        f"Complaint {complaint.reference}: returned to you by the HOD",
+        f"{hod} does not agree with the findings and has returned the complaint. Please improve the response and "
+        "submit it to the HOD again.",
+        _addresses(people.pics(complaint)),
+        comment=comment,
+        comment_label="HOD comment",
+    )
+
+
+def notify_fm_of_response(complaint, hod):
+    decision = complaint.get_hod_decision_display()
+    details = f"HOD decision: {decision}. Cause: {complaint.get_cause_display()}."
+    if complaint.hod_reason:
+        details += f"\nReason: {complaint.hod_reason}"
+    return _notice(
+        complaint,
+        f"Complaint {complaint.reference}: response for your approval",
+        f"{hod} has reviewed the response and submitted it for your approval.",
+        _addresses(people.fms(complaint)),
+        cc=_addresses(people.coordinators() + people.pics(complaint)),
+        details=details,
+    )
+
+
+# Step 6
+def notify_of_fm_decision(complaint, fm, approved, comment):
+    if approved:
+        subject = f"Complaint {complaint.reference}: approved by the FM"
+        intro = f"{fm} has approved the response. The PIC can now reply to the customer."
+    else:
+        subject = f"Complaint {complaint.reference}: rejected by the FM"
+        intro = (
+            f"{fm} has rejected the response. The PIC should amend it (or ask the supplier to improve the SCAR) "
+            "and submit it to the HOD again."
+        )
+    return _notice(
+        complaint,
+        subject,
+        intro,
+        _addresses(people.pics(complaint) + people.hods(complaint) + people.coordinators()),
+        comment=comment,
+        comment_label="FM comment",
+    )
+
+
+# Step 7
+def send_customer_reply(complaint, reply, files, sender):
+    attachments = [(name, content, mime) for name, content, mime in files]
+    return _send(
+        reply.subject,
+        reply.body,
+        [reply.to_email],
+        cc=_addresses([sender]),
+        attachments=attachments,
+        reply_to=_addresses([sender]),
+    )
+
+
+def notify_of_reply_sent(complaint, sender):
+    return _notice(
+        complaint,
+        f"Complaint {complaint.reference}: reply sent to the customer",
+        f"{sender} has sent the reply to the customer. A copy is saved in the complaint record.",
+        _addresses(people.hods(complaint) + people.fms(complaint) + people.coordinators()),
+    )
+
+
+# Step 8
+def notify_pics_not_effective(complaint, coordinator, comment):
+    return _notice(
+        complaint,
+        f"Complaint {complaint.reference}: corrective action not effective",
+        f"{coordinator} found that the corrective action was not effective. The complaint is back with the PIC.",
+        _addresses(people.pics(complaint)),
+        cc=_addresses(people.hods(complaint)),
+        comment=comment,
+        comment_label="Coordinator comment",
     )

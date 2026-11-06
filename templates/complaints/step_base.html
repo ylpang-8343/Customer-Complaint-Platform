@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ complaint.reference }}{% endblock %}
+{% block page_title %}{{ complaint.reference }} — {% block step_name %}{% endblock %}{% endblock %}
+{% block scope %}{% block step_scope %}{% endblock %}{% endblock %}
+{% block content %}
+{% if form.non_field_errors %}
+<div class="alert error" role="alert">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<div class="title-row">
+  <h2>{{ complaint.reference }}</h2>
+  <span class="status status-{{ complaint.status_key }}">{{ complaint.status_label }}</span>
+  <span style="margin-left:auto">
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Full complaint</a>
+    <a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF summary</a>
+  </span>
+</div>
+
+<section class="card brief">
+  <h2 class="section-title"><span class="badge">i</span> The complaint</h2>
+  <dl class="facts">
+    <div><dt>Factory</dt><dd>{{ complaint.factory }}</dd></div>
+    <div><dt>Buyer</dt><dd>{{ complaint.buyer|default:"—" }}</dd></div>
+    <div><dt>Product</dt><dd>{{ complaint.product_name|default:"—" }}</dd></div>
+    <div><dt>Contract</dt><dd>{{ complaint.contract_number|default:"—" }}</dd></div>
+    <div><dt>Type</dt><dd>{{ complaint.complaint_sub_type|default:complaint.complaint_type|default:"—" }}</dd></div>
+    <div><dt>Affected quantity</dt><dd>{% if complaint.affected_quantity %}{{ complaint.affected_quantity|floatformat:"-3" }} {{ complaint.get_quantity_unit_display }}{% else %}—{% endif %}</dd></div>
+    <div class="wide"><dt>Description</dt><dd>{{ complaint.description|linebreaksbr|default:"—" }}</dd></div>
+  </dl>
+</section>
+
+{% block step %}{% endblock %}
+{% endblock %}
+{% block scripts %}{% block step_scripts %}{% endblock %}{% endblock %}

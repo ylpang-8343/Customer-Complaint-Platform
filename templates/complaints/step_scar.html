@@ -1,0 +1,38 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}Issue SCAR{% endblock %}
+{% block step_scope %}PIC — send a Supplier Corrective Action Request under the complaint reference. The status becomes Pending SCAR from Supplier.{% endblock %}
+{% block step %}
+{% if previous %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">i</span> SCARs already issued</h2>
+  <ul class="files">
+    {% for s in previous %}<li>{{ s.party_name }} · {{ s.issued_at|date:"j M Y" }} · {% if s.is_returned %}returned{% else %}not returned{% endif %} · <a href="{% url 'scar_pdf' s.pk %}">PDF</a></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Who the SCAR goes to</h2>
+    <div class="grid">
+      {% include "complaints/_auto.html" with label="SCAR reference" value=complaint.reference note="same as the complaint" %}
+      {% include "complaints/_field.html" with field=form.party_type %}
+      {% include "complaints/_field.html" with field=form.party_name %}
+      {% include "complaints/_field.html" with field=form.contact_email %}
+    </div>
+  </section>
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> The email</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.subject span=True %}
+      {% include "complaints/_field.html" with field=form.message span=True %}
+    </div>
+    <p class="footnote">A PDF of the SCAR, with the complaint details but not the buyer's name, is attached. Replies come to you. Change the name above and choose <em>Generate again</em> to rebuild the wording from the template.</p>
+  </section>
+  <div class="form-actions">
+    <button type="submit" class="button primary">Send SCAR</button>
+    <button type="submit" name="regenerate" value="1" class="button" formnovalidate>Generate again</button>
+    <a class="button" href="{% url 'complaint_investigation' complaint.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

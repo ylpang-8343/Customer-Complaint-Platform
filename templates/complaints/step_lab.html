@@ -1,0 +1,42 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}Laboratory section{% endblock %}
+{% block step_scope %}Laboratory staff — record the test results for the sample sent to the factory.{% endblock %}
+{% block step %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Laboratory</h2>
+    <div class="grid">
+      {% include "complaints/_auto.html" with label="Tested by" value=user.get_full_name|default:user.username note="from profile" %}
+      {% include "complaints/_field.html" with field=form.acknowledged_on %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Test results</h2>
+    <div class="table-wrap">
+      <table class="list">
+        <thead><tr><th>Test</th><th>From buyer's sample</th><th>From retained sample</th></tr></thead>
+        <tbody>
+          {% for test, buyer, retained in form.grid %}
+          <tr><td>{{ test.name }}</td><td class="cell-input">{{ buyer }}</td><td class="cell-input">{{ retained }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="footnote">The Coordinator keeps the list of tests in Settings.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">C</span> Remarks and test report</h2>
+    {% include "complaints/_field.html" with field=form.remarks %}
+    {% include "complaints/_files.html" with files=attachments removable=True %}
+    {% include "complaints/_field.html" with field=form.attachments %}
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="button primary">Save laboratory section</button>
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Back</a>
+  </div>
+</form>
+{% endblock %}

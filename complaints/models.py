@@ -101,13 +101,35 @@ class ComplaintQuerySet(models.QuerySet):
         """Complaints the user may open. A draft is visible only to the person who lodged it."""
         if not user.is_authenticated:
             return self.none()
-        return scope_to_user(self, user).filter(~Q(status=Complaint.Status.DRAFT) | Q(lodged_by=user))
+        from . import people
+
+        visible = scope_to_user(self, user)
+        # A deputy also sees the factory they act for while the HOD or FM is away.
+        acting_for = people.hod_factories(user) | people.fm_factories(user)
+        if acting_for:
+            visible = self.filter(Q(pk__in=visible.values("pk")) | Q(factory_id__in=acting_for))
+        return visible.filter(~Q(status=Complaint.Status.DRAFT) | Q(lodged_by=user))
 
 
 class Complaint(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         SUBMITTED = "submitted", "Submitted"
+        INVESTIGATION = "investigation", "PIC investigation"
+        PENDING_SCAR = "pending_scar", "Pending SCAR from Supplier"
+        HOD_REVIEW = "hod_review", "HOD review"
+        FM_REVIEW = "fm_review", "FM approval"
+        APPROVED = "approved", "Approved, reply due"
+        RESPONSE_SENT = "response_sent", "Customer Response Sent"
+        CLOSED = "closed", "Closed"
+
+    class HodDecision(models.TextChoices):
+        VALID = "valid", "Valid"
+        INVALID = "invalid", "Invalid"
+
+    class Cause(models.TextChoices):
+        INTERNAL = "internal", "Internal"
+        EXTERNAL = "external", "External (supplier, transporter, other party)"
 
     class PackingType(models.TextChoices):
         BULK = "bulk", "Bulk"
@@ -179,6 +201,22 @@ class Complaint(models.Model):
         ComplaintMethod, null=True, blank=True, on_delete=models.PROTECT, related_name="complaints"
     )
 
+    # Set while the complaint is handled (steps 3 to 8)
+    status_changed_at = models.DateTimeField(default=timezone.now, editable=False)
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    acknowledged_at = models.DateTimeField(null=True, blank=True, editable=False)
+    coordinator_remarks = models.TextField("Remarks", blank=True)
+    cause = models.CharField(max_length=10, choices=Cause.choices, blank=True)
+    hod_decision = models.CharField(max_length=10, choices=HodDecision.choices, blank=True)
+    hod_reason = models.TextField("Reason it is invalid", blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    deleted_reason = models.TextField(blank=True)
+
     objects = ComplaintQuerySet.as_manager()
 
     class Meta:
@@ -195,6 +233,25 @@ class Complaint(models.Model):
     @property
     def is_draft(self):
         return self.status == self.Status.DRAFT
+
+    @property
+    def is_deleted(self):
+        return self.deleted_at is not None
+
+    @property
+    def status_key(self):
+        """The status as shown to people: a deleted complaint reads Deleted whatever its stage."""
+        return "deleted" if self.is_deleted else self.status
+
+    @property
+    def waiting_role(self):
+        from . import people
+
+        return people.responsible_role(self)
+
+    @property
+    def status_label(self):
+        return "Deleted" if self.is_deleted else self.get_status_display()
 
     def assign_reference(self, today=None):
         """Give the complaint the next reference of its factory, for example FA/2026/0001."""
@@ -227,16 +284,26 @@ class Complaint(models.Model):
     def missing_mandatory(self):
         return rules.missing_mandatory(lambda name: getattr(self, name))
 
-    def submit(self):
+    def submit(self, actor=None):
         """Hand a complete draft to the Coordinator."""
         if not self.is_draft:
             raise ValidationError("Only a draft can be submitted.")
         missing = self.missing_mandatory()
         if missing:
             raise ValidationError(missing, code="incomplete")
+        now = timezone.now()
         self.status = self.Status.SUBMITTED
-        self.submitted_at = timezone.now()
-        self.save()
+        self.submitted_at = self.status_changed_at = now
+        with transaction.atomic():
+            self.save()
+            ComplaintEvent.objects.create(
+                complaint=self,
+                action=ComplaintEvent.Action.SUBMITTED,
+                actor=actor or self.lodged_by,
+                from_status=self.Status.DRAFT,
+                to_status=self.Status.SUBMITTED,
+                created_at=now,
+            )
 
     def save(self, *args, **kwargs):
         self.normalise()
@@ -258,6 +325,11 @@ class Attachment(models.Model):
 
     class Section(models.TextChoices):
         LODGING = "lodging", "Complaint form"
+        COORDINATOR = "coordinator", "Coordinator"
+        INVESTIGATION = "investigation", "Investigation"
+        LAB = "lab", "Laboratory"
+        SCAR = "scar", "Returned SCAR"
+        REPLY = "reply", "Reply to customer"
 
     complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name="attachments")
     section = models.CharField(max_length=20, choices=Section.choices, default=Section.LODGING)
@@ -272,3 +344,177 @@ class Attachment(models.Model):
 
     def __str__(self):
         return self.original_name
+
+
+# --- Handling a submitted complaint (steps 3 to 8) -----------------------------------
+
+
+class ComplaintEvent(models.Model):
+    """One line of the complaint's history: what happened, who did it, and any comment."""
+
+    class Action(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted to the Coordinator"
+        ASSIGNED = "assigned", "Assigned to PIC(s)"
+        SCAR_ISSUED = "scar_issued", "SCAR issued"
+        SCAR_RETURNED = "scar_returned", "Returned SCAR uploaded"
+        SENT_TO_HOD = "sent_to_hod", "Findings submitted to the HOD"
+        HOD_RETURNED = "hod_returned", "Returned to the PIC by the HOD"
+        HOD_TO_FM = "hod_to_fm", "HOD decision submitted to the FM"
+        FM_APPROVED = "fm_approved", "Approved by the FM"
+        FM_REJECTED = "fm_rejected", "Rejected by the FM"
+        REPLY_SENT = "reply_sent", "Reply sent to the customer"
+        NOT_EFFECTIVE = "not_effective", "Action not effective, returned to the PIC"
+        CLOSED = "closed", "Case closed"
+        DELETED = "deleted", "Deleted"
+
+    complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name="events")
+    action = models.CharField(max_length=20, choices=Action.choices)
+    comment = models.TextField(blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name="+"
+    )
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.complaint}: {self.get_action_display()}"
+
+
+class Assignment(models.Model):
+    """A PIC the Coordinator chose for a complaint (step 3)."""
+
+    complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name="assignments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assignments")
+    designation = models.CharField(max_length=100, blank=True)
+    assigned_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["assigned_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["complaint", "user"], name="unique_assignment")]
+
+    def __str__(self):
+        return f"{self.complaint}: {self.user}"
+
+
+class Investigation(models.Model):
+    """The PIC's findings (step 4)."""
+
+    complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name="investigation")
+    root_cause = models.TextField("Root cause analysis", blank=True)
+    correction = models.TextField(blank=True, help_text="What was done to deal with this complaint.")
+    corrective_action = models.TextField(
+        "Corrective and preventive action", blank=True, help_text="What will stop it happening again."
+    )
+    respondent = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Investigation of {self.complaint}"
+
+
+class LabSection(models.Model):
+    """The laboratory section, which opens when a sample was sent to the factory."""
+
+    complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name="lab")
+    tested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    acknowledged_on = models.DateField("Lab acknowledgement date", null=True, blank=True)
+    remarks = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Laboratory section of {self.complaint}"
+
+
+class LabResult(models.Model):
+    """One row of the test grid: a test, with the result from each of the two samples."""
+
+    lab = models.ForeignKey(LabSection, on_delete=models.CASCADE, related_name="results")
+    test = models.ForeignKey(LabTest, on_delete=models.PROTECT, related_name="+")
+    buyer_sample = models.CharField("From buyer's sample", max_length=100, blank=True)
+    retained_sample = models.CharField("From retained sample", max_length=100, blank=True)
+
+    class Meta:
+        ordering = ["test__sort_order", "test__name"]
+        constraints = [models.UniqueConstraint(fields=["lab", "test"], name="unique_result_per_test")]
+
+    def __str__(self):
+        return f"{self.lab.complaint}: {self.test}"
+
+
+class Scar(models.Model):
+    """A Supplier Corrective Action Request sent to an external party (step 4a)."""
+
+    class PartyType(models.TextChoices):
+        SUPPLIER = "supplier", "Supplier"
+        TRANSPORTER = "transporter", "Transporter"
+        OTHER = "other", "Other party"
+
+    complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name="scars")
+    party_type = models.CharField(max_length=12, choices=PartyType.choices, default=PartyType.SUPPLIER)
+    party_name = models.CharField(max_length=200)
+    contact_email = models.EmailField()
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    issued_at = models.DateTimeField(default=timezone.now)
+    returned_file = models.ForeignKey(
+        Attachment, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    returned_at = models.DateTimeField(null=True, blank=True)
+    returned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        ordering = ["issued_at", "id"]
+
+    def __str__(self):
+        return f"SCAR {self.complaint.reference} to {self.party_name}"
+
+    @property
+    def is_returned(self):
+        return self.returned_at is not None
+
+
+class CustomerReply(models.Model):
+    """The reply email as it was sent to the customer (step 7). A copy is kept."""
+
+    complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name="reply")
+    to_email = models.EmailField()
+    subject = models.CharField(max_length=200)
+    body = models.TextField()
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    sent_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name_plural = "customer replies"
+
+    def __str__(self):
+        return f"Reply to {self.to_email} for {self.complaint}"
+
+
+class Verification(models.Model):
+    """The Coordinator's check that the corrective action worked, and the closing of the case (step 8)."""
+
+    complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name="verification")
+    first_verified_date = models.DateField(null=True, blank=True)
+    first_result = models.TextField(blank=True)
+    second_verified_date = models.DateField(null=True, blank=True)
+    second_result = models.TextField(blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    closing_comment = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Verification of {self.complaint}"

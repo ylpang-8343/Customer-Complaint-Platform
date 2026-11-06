@@ -1,0 +1,65 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}PIC investigation{% endblock %}
+{% block step_scope %}PIC — enter the root cause, correction and corrective action, then submit to the HOD.{% endblock %}
+{% block step %}
+{% if hod_comments %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">!</span> Comments to deal with</h2>
+  <ul class="timeline">
+    {% for e in hod_comments %}<li><strong>{{ e.get_action_display }}</strong> · {{ e.actor }} · {{ e.created_at|date:"j M Y, H:i" }}<br>{{ e.comment|linebreaksbr }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">A</span> Investigation findings</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.root_cause span=True %}
+      {% include "complaints/_field.html" with field=form.correction span=True %}
+      {% include "complaints/_field.html" with field=form.corrective_action span=True %}
+      {% include "complaints/_field.html" with field=form.cause %}
+      {% include "complaints/_auto.html" with label="Respondent" value=user.get_full_name|default:user.username note="from profile" %}
+    </div>
+  </section>
+
+  {% if complaint.sample_sent %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Laboratory section <a class="button actions-right" href="{% url 'complaint_lab' complaint.pk %}">{% if user.role == "lab" %}Fill in{% else %}View{% endif %}</a></h2>
+    {% if lab %}
+      <p>Lab acknowledgement date: <strong>{{ lab.acknowledged_on|date:"j M Y"|default:"not yet entered" }}</strong>{% if lab.tested_by %} · tested by {{ lab.tested_by }}{% endif %}</p>
+    {% else %}
+      <p class="muted">The laboratory staff have not entered anything yet. A sample was sent, so the findings cannot go to the HOD until they have.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">{% if complaint.sample_sent %}C{% else %}B{% endif %}</span> Supplier or transporter (SCAR)</h2>
+    {% for s in scars %}
+      <p>SCAR to <strong>{{ s.party_name }}</strong> on {{ s.issued_at|date:"j M Y" }} —
+        {% if s.is_returned %}returned {{ s.returned_at|date:"j M Y" }} (<a href="{% url 'attachment_download' s.returned_file.pk %}">{{ s.returned_file.original_name }}</a>){% else %}<strong>waiting to be returned</strong>{% endif %}</p>
+    {% empty %}
+      <p class="muted">If the cause is a supplier, a transporter or another external party, issue a SCAR. The status becomes Pending SCAR from Supplier and Submit to HOD stays locked until the returned SCAR is uploaded.</p>
+    {% endfor %}
+    {% if complaint.status == "pending_scar" %}
+      <a class="button primary" href="{% url 'complaint_scar_return' complaint.pk %}">Upload the returned SCAR</a>
+    {% elif can_issue_scar %}
+      <a class="button" href="{% url 'complaint_scar' complaint.pk %}">Issue SCAR…</a>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">{% if complaint.sample_sent %}D{% else %}C{% endif %}</span> Attachments</h2>
+    {% include "complaints/_files.html" with files=attachments removable=True %}
+    {% include "complaints/_field.html" with field=form.attachments %}
+  </section>
+
+  <div class="form-actions">
+    <p>Save at any time. Submit to the HOD needs the root cause, correction, corrective action and cause{% if complaint.sample_sent %}, the laboratory section{% endif %}, and any SCAR returned.</p>
+    <button type="submit" name="save" class="button">Save</button>
+    {% if can_submit %}<button type="submit" name="submit" class="button primary">Submit to HOD</button>{% else %}<button type="button" class="button" disabled title="Locked until the returned SCAR is uploaded">Submit to HOD (locked)</button>{% endif %}
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,27 @@
+<section class="card">
+  <h2 class="section-title"><span class="badge">1</span> The PIC's findings</h2>
+  {% if investigation %}
+  <dl class="facts">
+    <div class="wide"><dt>Root cause analysis</dt><dd>{{ investigation.root_cause|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Correction</dt><dd>{{ investigation.correction|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Corrective and preventive action</dt><dd>{{ investigation.corrective_action|linebreaksbr|default:"—" }}</dd></div>
+    <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>
+    <div><dt>Respondent</dt><dd>{{ investigation.respondent|default:"—" }}{% if investigation.submitted_at %} · {{ investigation.submitted_at|date:"j M Y, H:i" }}{% endif %}</dd></div>
+  </dl>
+  {% else %}<p class="muted">No findings have been entered.</p>{% endif %}
+  {% for s in scars %}
+    <p>SCAR to <strong>{{ s.party_name }}</strong> ({{ s.issued_at|date:"j M Y" }}): {% if s.is_returned %}returned — <a href="{% url 'attachment_download' s.returned_file.pk %}">{{ s.returned_file.original_name }}</a>{% else %}not returned yet{% endif %}.</p>
+  {% endfor %}
+  {% if lab %}
+    <p>Laboratory: acknowledged {{ lab.acknowledged_on|date:"j M Y"|default:"—" }}, tested by {{ lab.tested_by|default:"—" }}.
+      {% for r in lab.results.all %}{% if r.buyer_sample or r.retained_sample %}<br>{{ r.test.name }}: buyer's sample {{ r.buyer_sample|default:"—" }}, retained sample {{ r.retained_sample|default:"—" }}{% endif %}{% endfor %}</p>
+  {% endif %}
+</section>
+{% if history %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">2</span> Earlier comments</h2>
+  <ul class="timeline">
+    {% for e in history %}<li><strong>{{ e.get_action_display }}</strong> · {{ e.actor }} · {{ e.created_at|date:"j M Y, H:i" }}<br>{{ e.comment|linebreaksbr }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}

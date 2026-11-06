@@ -1,0 +1,23 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}HOD review{% endblock %}
+{% block step_scope %}HOD — decide whether the complaint is valid and send the response to the FM, or return it to the PIC.{% endblock %}
+{% block step %}
+{% include "complaints/_findings.html" %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">3</span> HOD decision</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.decision %}
+      {% include "complaints/_field.html" with field=form.cause %}
+      {% include "complaints/_field.html" with field=form.reason span=True %}
+      {% include "complaints/_field.html" with field=form.comment span=True %}
+    </div>
+  </section>
+  <div class="form-actions">
+    <p>Submitting goes straight to the FM, with the Coordinator and the PIC copied. Returning needs a comment and emails the PIC.</p>
+    <button type="submit" name="submit" class="button primary">Submit to FM</button>
+    <button type="submit" name="return" class="button">Return to PIC</button>
+  </div>
+</form>
+{% endblock %}

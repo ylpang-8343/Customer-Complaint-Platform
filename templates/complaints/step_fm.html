@@ -1,0 +1,26 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}FM approval{% endblock %}
+{% block step_scope %}Factory Manager — approve the response, or reject it with a comment.{% endblock %}
+{% block step %}
+{% include "complaints/_findings.html" %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">3</span> HOD decision</h2>
+  <dl class="facts">
+    <div><dt>The complaint is</dt><dd>{{ complaint.get_hod_decision_display|default:"—" }}</dd></div>
+    <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>
+    {% if complaint.hod_reason %}<div class="wide"><dt>Reason it is invalid</dt><dd>{{ complaint.hod_reason|linebreaksbr }}</dd></div>{% endif %}
+  </dl>
+</section>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">4</span> FM decision</h2>
+    {% include "complaints/_field.html" with field=form.comment %}
+  </section>
+  <div class="form-actions">
+    <p>The PIC, the HOD and the Coordinator are emailed the decision and your comment. After a rejection the PIC amends the response and submits it to the HOD again.</p>
+    <button type="submit" name="approve" class="button primary">Approve</button>
+    <button type="submit" name="reject" class="button">Reject</button>
+  </div>
+</form>
+{% endblock %}

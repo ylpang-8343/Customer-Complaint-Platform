@@ -20,10 +20,23 @@ Open http://127.0.0.1:8000/. Every demo user has the password `demo-pass-123`:
 | `mr` | Coordinator (MR). Can open Settings (the admin site) to maintain complaint types, lab tests, complaint methods and each factory's PIC list. |
 | `management` | Top management (all factories) |
 | `sales` | Lodger outside the factories |
-| `fa.fm`, `fa.hod`, `fa.pic`, `fa.lab`, `fa.labmgr` | Factory A staff. The same pattern exists for `fb` to `fe`. |
+| `fa.fm`, `fa.hod`, `fa.pic`, `fa.lab`, `fa.labmgr` | Factory A staff: FM, HOD, a PIC, a laboratory PIC and the lab manager. The same pattern exists for `fb` to `fe`. |
 
 Create a real administrator with `manage.py createsuperuser`. Run `manage.py seed` (without
 `--demo`) on a production install to load the factories, complaint types and lab tests.
+
+## The process
+
+Steps 1 to 8 of the proposal are built: lodging, assignment by the Coordinator, the PIC's investigation
+with the laboratory section, SCAR to an external party, HOD review, FM approval (with the rejection loop),
+the reply to the customer and the Coordinator's effectiveness check and closing. Every step checks who may
+do it and in which status, writes a line in the complaint's history and emails the people concerned.
+To try it, sign in as `sales` to lodge a complaint, then as `mr`, `fa.lab`, `fa.pic`, `fa.hod`, `fa.fm`
+in turn. In development the emails are printed in the server console.
+
+The top of every complaint shows a progress bar (Submitted, Assignment, Investigation, HOD review, FM approval,
+Customer reply, Effectiveness and closing) with the date each stage was done and who the complaint is waiting
+for now. When the HOD, FM or Coordinator sends it back, the marker moves back to Investigation and says why.
 
 ## Screenshots
 
@@ -38,6 +51,8 @@ Taken from the running app with the demo data (`docs/img/`):
 | Audit log and one entry showing who changed what | `13-audit-log.png`, `14-audit-entry-detail.png` |
 | Lodging: blank form, saved draft with its reference number, a submit with fields missing, the submitted complaint, the list | `15` to `19` |
 | Help page, a filtered list, and the phone-width list and form | `21-help.png`, `22-home-filtered.png`, `23-mobile-list.png`, `24-mobile-form.png` |
+
+| The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
 
 The settings and audit-log pages (`06` to `14`) are Django's standard admin site and are not
 restyled. Everything else uses the shared layout in `templates/base.html` and

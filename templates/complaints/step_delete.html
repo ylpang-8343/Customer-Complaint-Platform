@@ -1,0 +1,16 @@
+{% extends "complaints/step_base.html" %}
+{% block step_name %}Delete{% endblock %}
+{% block step_scope %}A complaint is never removed: it is marked Deleted with a reason and stays in the log.{% endblock %}
+{% block step %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">!</span> Mark as deleted</h2>
+    {% include "complaints/_field.html" with field=form.reason %}
+  </section>
+  <div class="form-actions">
+    <button type="submit" class="button primary">Mark as deleted</button>
+    <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

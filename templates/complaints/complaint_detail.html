@@ -1,16 +1,51 @@
 {% extends "base.html" %}
 {% block title %}{{ complaint.reference }}{% endblock %}
 {% block page_title %}{{ complaint.reference }} — {{ complaint.complaint_sub_type|default:complaint.complaint_type|default:"Customer complaint" }}{% endblock %}
-{% block scope %}{% if complaint.is_draft %}Draft — only you can see it, and only you can change it.{% else %}Submitted — read-only. The Coordinator has been asked to assign it.{% endif %}{% endblock %}
+{% block scope %}{% if complaint.is_deleted %}Deleted — kept in the log with its reason.{% elif complaint.is_draft %}Draft — only you can see it, and only you can change it.{% elif complaint.status == "closed" %}Closed — read-only.{% elif waiting_role %}Waiting for: {{ waiting_role }}{% if waiting_users %} — {% for u in waiting_users %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% else %}Read-only.{% endif %}{% endblock %}
 {% block content %}
-<div class="title-row">
-  <h2>{{ complaint.reference }}</h2>
-  <span class="status status-{{ complaint.status }}">{{ complaint.get_status_display }}</span>
-  <span style="margin-left:auto">
-    <a class="button" href="{% url 'home' %}">Back to list</a>
-    {% if can_edit %}<a class="button primary" href="{% url 'complaint_edit' complaint.pk %}">Continue editing</a>{% endif %}
-  </span>
-</div>
+<section class="card head{% if complaint.is_deleted %} is-deleted{% endif %}">
+  <div class="head-top">
+    <div>
+      <div class="head-title">
+        <h2>{{ complaint.reference }}</h2>
+        <span class="status status-{{ complaint.status_key }}">{{ complaint.status_label }}</span>
+        {% if complaint.factory %}<span class="tag">{{ complaint.factory }}</span>{% endif %}
+        {% if complaint.complaint_type %}<span class="tag">{{ complaint.complaint_type }}</span>{% endif %}
+        {% if complaint.hod_decision and not complaint.is_deleted %}<span class="tag">HOD: {{ complaint.get_hod_decision_display }}</span>{% endif %}
+      </div>
+      <p class="head-sub">Raised by {{ complaint.lodged_by }}{% if complaint.lodger_department or complaint.lodger_factory %} ({{ complaint.lodger_department }}{% if complaint.lodger_department and complaint.lodger_factory %} · {% endif %}{{ complaint.lodger_factory|default:"" }}){% endif %} on {{ complaint.created_at|date:"j M Y, H:i" }}</p>
+    </div>
+    <span class="head-actions">
+      <a class="button" href="{% url 'home' %}">Back to list</a>
+      {% if not complaint.is_draft %}<a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF summary</a>{% endif %}
+      {% if can_edit %}<a class="button primary" href="{% url 'complaint_edit' complaint.pk %}">Continue editing</a>{% endif %}
+    </span>
+  </div>
+  <div class="stepper-wrap">
+    <ol class="stepper" aria-label="Progress">
+      {% for step in progress %}
+      <li class="{{ step.state }}"{% if step.state == "current" %} aria-current="step"{% endif %}>
+        <span class="dot">{% if step.state == "done" %}✓{% else %}{{ step.number }}{% endif %}</span>
+        <span class="step-label">{{ step.label }}</span>
+        <span class="step-note">{{ step.note }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+
+{% if complaint.is_deleted %}
+<div class="alert error" role="alert"><strong>Deleted</strong> by {{ complaint.deleted_by }} on {{ complaint.deleted_at|date:"j M Y, H:i" }}. Reason: {{ complaint.deleted_reason }}</div>
+{% endif %}
+
+{% if actions %}
+<section class="card next-step">
+  <h2 class="section-title"><span class="badge">→</span> What you can do now</h2>
+  <p class="actions">
+    {% for a in actions %}<a class="button{% if a.main %} primary{% endif %}" href="{% url a.url_name complaint.pk %}">{{ a.label }}</a> {% endfor %}
+  </p>
+</section>
+{% endif %}
 
 {% for title, rows in sections %}
 <section class="card">
@@ -26,13 +61,119 @@
 <section class="card">
   <h2 class="section-title"><span class="badge">{{ sections|length|add:1 }}</span> Supporting documents and pictures</h2>
   {% if attachments %}
-  <ul class="files">
-    {% for a in attachments %}
-    <li><a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a> <span class="muted">{{ a.size|filesizeformat }}</span></li>
-    {% endfor %}
-  </ul>
+  {% include "complaints/_files.html" with files=attachments %}
   {% else %}
   <p class="muted">No files attached.</p>
   {% endif %}
 </section>
+
+{% if handled or assignments %}
+<h2 class="part-title">Handling</h2>
+
+<section class="card">
+  <h2 class="section-title"><span class="badge">C</span> Coordinator section</h2>
+  <dl class="facts">
+    <div><dt>Received by</dt><dd>{{ complaint.received_by|default:"—" }}</dd></div>
+    <div><dt>Acknowledgement date</dt><dd>{% if complaint.acknowledged_at %}{{ complaint.acknowledged_at|date:"j M Y, H:i" }}{% else %}—{% endif %}</dd></div>
+    <div class="wide"><dt>Assigned PIC(s)</dt><dd>{% for a in assignments %}{{ a.user }} ({{ a.designation }}, {{ a.user.email }}){% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</dd></div>
+    <div class="wide"><dt>Remarks</dt><dd>{{ complaint.coordinator_remarks|linebreaksbr|default:"—" }}</dd></div>
+  </dl>
+  {% include "complaints/_files.html" with files=files.coordinator %}
+</section>
+
+{% if investigation %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">P</span> PIC investigation</h2>
+  <dl class="facts">
+    <div class="wide"><dt>Root cause analysis</dt><dd>{{ investigation.root_cause|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Correction</dt><dd>{{ investigation.correction|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Corrective and preventive action</dt><dd>{{ investigation.corrective_action|linebreaksbr|default:"—" }}</dd></div>
+    <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>
+    <div><dt>Respondent</dt><dd>{{ investigation.respondent|default:"—" }}{% if investigation.submitted_at %} · {{ investigation.submitted_at|date:"j M Y, H:i" }}{% endif %}</dd></div>
+  </dl>
+  {% include "complaints/_files.html" with files=files.investigation %}
+</section>
+{% endif %}
+
+{% if complaint.sample_sent %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">L</span> Laboratory section</h2>
+  {% if lab %}
+  <dl class="facts">
+    <div><dt>Tested by</dt><dd>{{ lab.tested_by|default:"—" }}</dd></div>
+    <div><dt>Lab acknowledgement date</dt><dd>{{ lab.acknowledged_on|date:"j M Y"|default:"—" }}</dd></div>
+  </dl>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>Test</th><th>From buyer's sample</th><th>From retained sample</th></tr></thead>
+      <tbody>{% for r in lab.results.all %}<tr><td>{{ r.test.name }}</td><td>{{ r.buyer_sample|default:"—" }}</td><td>{{ r.retained_sample|default:"—" }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <dl class="facts"><div class="wide"><dt>Remarks</dt><dd>{{ lab.remarks|linebreaksbr|default:"—" }}</dd></div>
+    <div><dt>Date reply to customer</dt><dd>{% if reply %}{{ reply.sent_at|date:"j M Y" }}{% else %}—{% endif %}</dd></div></dl>
+  {% include "complaints/_files.html" with files=files.lab %}
+  {% else %}
+  <p class="muted">A sample was sent to the factory. The laboratory staff have not entered their results yet.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if scars %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">S</span> SCAR</h2>
+  <ul class="files">
+    {% for s in scars %}
+    <li><strong>{{ s.party_name }}</strong> ({{ s.get_party_type_display }}, {{ s.contact_email }}) · issued {{ s.issued_at|date:"j M Y" }} by {{ s.issued_by }} · <a href="{% url 'scar_pdf' s.pk %}">SCAR PDF</a><br>
+      {% if s.is_returned %}Returned {{ s.returned_at|date:"j M Y" }}: <a href="{% url 'attachment_download' s.returned_file.pk %}">{{ s.returned_file.original_name }}</a>{% else %}<span class="status status-pending_scar">Not returned yet</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if complaint.hod_decision %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">H</span> HOD decision</h2>
+  <dl class="facts">
+    <div><dt>The complaint is</dt><dd>{{ complaint.get_hod_decision_display }}</dd></div>
+    <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>
+    {% if complaint.hod_reason %}<div class="wide"><dt>Reason it is invalid</dt><dd>{{ complaint.hod_reason|linebreaksbr }}</dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}
+
+{% if reply %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">R</span> Reply sent to the customer</h2>
+  <p class="muted">{{ reply.sent_at|date:"j M Y, H:i" }} · {{ reply.sent_by }} · to {{ reply.to_email }}</p>
+  <p><strong>{{ reply.subject }}</strong></p>
+  <p>{{ reply.body|linebreaksbr }}</p>
+  {% include "complaints/_files.html" with files=files.reply %}
+</section>
+{% endif %}
+
+{% if verification %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">V</span> Effectiveness and closing</h2>
+  <dl class="facts">
+    <div><dt>First verified date</dt><dd>{{ verification.first_verified_date|date:"j M Y"|default:"—" }}</dd></div>
+    <div><dt>Result</dt><dd>{{ verification.first_result|linebreaksbr|default:"—" }}</dd></div>
+    <div><dt>Second verified date</dt><dd>{{ verification.second_verified_date|date:"j M Y"|default:"—" }}</dd></div>
+    <div><dt>Result</dt><dd>{{ verification.second_result|linebreaksbr|default:"—" }}</dd></div>
+    <div><dt>Date case closed</dt><dd>{% if verification.closed_at %}{{ verification.closed_at|date:"j M Y" }} by {{ verification.closed_by }}{% else %}—{% endif %}</dd></div>
+    <div><dt>Closing comment</dt><dd>{{ verification.closing_comment|linebreaksbr|default:"—" }}</dd></div>
+  </dl>
+</section>
+{% endif %}
+{% endif %}
+
+{% if events %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">⟲</span> History</h2>
+  <ul class="timeline">
+    {% for e in events %}
+    <li><strong>{{ e.get_action_display }}</strong> · {{ e.actor|default:"System" }} · {{ e.created_at|date:"j M Y, H:i" }}{% if e.comment %}<br><span class="muted">{{ e.comment|linebreaksbr }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% endblock %}

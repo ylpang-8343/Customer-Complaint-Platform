@@ -10,7 +10,7 @@
 <div class="kpis">
   <div class="kpi"><b>{{ totals.visible }}</b><span>Complaints I can see</span></div>
   <div class="kpi"><b>{{ totals.drafts }}</b><span>My drafts</span></div>
-  <div class="kpi info"><b>{{ totals.submitted }}</b><span>Submitted, waiting for the Coordinator</span></div>
+  <div class="kpi info"><b>{{ totals.waiting }}</b><span>Waiting for my action</span></div>
 </div>
 
 <section class="card">
@@ -24,6 +24,7 @@
     <div><label for="{{ filters.date_from.id_for_label }}">From</label>{{ filters.date_from }}</div>
     <div><label for="{{ filters.date_to.id_for_label }}">To</label>{{ filters.date_to }}</div>
     <div class="grow"><label for="{{ filters.q.id_for_label }}">Search</label>{{ filters.q }}</div>
+    <div class="check"><label>{{ filters.mine }} {{ filters.mine.label }}</label></div>
     <button class="button primary" type="submit">Apply</button>
     <a class="button" href="{% url 'home' %}">Reset</a>
   </form>
@@ -31,7 +32,7 @@
   <div class="table-wrap">
     <table class="list">
       <thead>
-        <tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Type</th><th>Lodged by</th><th>Lodged on</th><th>Status</th></tr>
+        <tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Type</th><th>Lodged by</th><th>Lodged on</th><th>Status</th><th>Waiting for</th></tr>
       </thead>
       <tbody>
         {% for c in page.object_list %}
@@ -42,10 +43,11 @@
           <td>{{ c.complaint_sub_type|default:c.complaint_type|default:"" }}</td>
           <td>{{ c.lodged_by }}</td>
           <td>{{ c.created_at|date:"j M Y" }}</td>
-          <td><span class="status status-{{ c.status }}">{{ c.get_status_display }}</span></td>
+          <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span></td>
+          <td>{% if c.pk in waiting_ids %}<strong class="mine">You</strong>{% else %}<span class="muted">{{ c.waiting_role|default:"—" }}</span>{% endif %}</td>
         </tr>
         {% empty %}
-        <tr><td class="empty" colspan="7">{% if filtered %}No complaints match the current filters.{% else %}No complaints yet. Use <strong>New complaint</strong> to record the first one.{% endif %}</td></tr>
+        <tr><td class="empty" colspan="8">{% if filtered %}No complaints match the current filters.{% else %}No complaints yet. Use <strong>New complaint</strong> to record the first one.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -63,7 +65,14 @@
     <strong>Status:</strong>
     <span class="status status-draft">Draft — only you can see it</span>
     <span class="status status-submitted">Submitted — waiting for the Coordinator</span>
+    <span class="status status-investigation">PIC investigation</span>
+    <span class="status status-pending_scar">Pending SCAR from Supplier</span>
+    <span class="status status-hod_review">HOD review</span>
+    <span class="status status-fm_review">FM approval</span>
+    <span class="status status-approved">Approved, reply due</span>
+    <span class="status status-response_sent">Customer Response Sent</span>
+    <span class="status status-closed">Closed</span>
+    <span class="status status-deleted">Deleted</span>
   </div>
-  <p class="footnote">More statuses appear here as the assignment, investigation, approval and closing steps are added.</p>
 </section>
 {% endblock %}

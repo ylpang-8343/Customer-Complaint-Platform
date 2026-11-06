@@ -10,7 +10,8 @@ from django.views.decorators.http import require_POST
 
 from accounts.access import factories_for
 
-from . import rules
+from . import people, rules, workflow
+from .progress import progress
 from .emails import notify_coordinator_of_submission
 from .forms import ComplaintFilterForm, ComplaintForm
 from .help_content import GUIDE_FOR_ROLE, GUIDES, TASKS
@@ -27,8 +28,9 @@ def home(request):
     visible = Complaint.objects.visible_to(request.user)
     filters = ComplaintFilterForm(request.GET)
     complaints = visible.select_related("factory", "lodged_by", "complaint_type", "complaint_sub_type")
+    waiting = workflow.waiting_for_me(request.user)
     if filters.is_valid():
-        complaints = filters.apply(complaints)
+        complaints = filters.apply(complaints, waiting)
     page = Paginator(complaints.order_by("-created_at", "-id"), PAGE_SIZE).get_page(request.GET.get("page"))
 
     query = request.GET.copy()
@@ -39,13 +41,14 @@ def home(request):
         {
             "factories": factories_for(request.user),
             "page": page,
+            "waiting_ids": set(visible.filter(waiting).values_list("pk", flat=True)),
             "filters": filters,
             "filtered": any(request.GET.get(name) for name in filters.fields),
             "querystring": query.urlencode(),
             "totals": {
                 "visible": visible.count(),
-                "drafts": visible.filter(status=Complaint.Status.DRAFT).count(),
-                "submitted": visible.filter(status=Complaint.Status.SUBMITTED).count(),
+                "drafts": visible.filter(status=Complaint.Status.DRAFT, lodged_by=request.user).count(),
+                "waiting": visible.filter(waiting).count(),
             },
         },
     )
@@ -68,17 +71,40 @@ def _visible_complaint_or_404(request, pk):
     return get_object_or_404(Complaint.objects.visible_to(request.user), pk=pk)
 
 
+def _by_section(complaint):
+    sections = {}
+    for attachment in complaint.attachments.select_related("uploaded_by"):
+        sections.setdefault(attachment.section, []).append(attachment)
+    return sections
+
+
 @login_required
 def complaint_detail(request, pk):
     complaint = _visible_complaint_or_404(request, pk)
+    user = request.user
+    files = _by_section(complaint)
+    events = list(complaint.events.select_related("actor"))
     return render(
         request,
         "complaints/complaint_detail.html",
         {
             "complaint": complaint,
             "sections": summary_sections(complaint),
-            "attachments": complaint.attachments.all(),
-            "can_edit": complaint.is_draft and complaint.lodged_by_id == request.user.pk,
+            "attachments": files.get("lodging", []),
+            "files": files,
+            "can_edit": complaint.is_draft and complaint.lodged_by_id == user.pk,
+            "actions": workflow.available_actions(user, complaint),
+            "waiting_role": people.responsible_role(complaint),
+            "waiting_users": people.responsible_users(complaint),
+            "assignments": complaint.assignments.select_related("user"),
+            "investigation": getattr(complaint, "investigation", None),
+            "lab": getattr(complaint, "lab", None),
+            "scars": complaint.scars.select_related("issued_by", "returned_file"),
+            "reply": getattr(complaint, "reply", None),
+            "verification": getattr(complaint, "verification", None),
+            "events": events,
+            "progress": progress(complaint, events),
+            "handled": not complaint.is_draft and complaint.status != Complaint.Status.SUBMITTED,
         },
     )
 
@@ -157,7 +183,7 @@ def complaint_form(request, pk=None):
         return _render_form(request, form)
 
     try:
-        complaint.submit()
+        complaint.submit(request.user)
     except ValidationError as error:  # the rules changed between the check and the save
         form.add_error(None, error)
         return _render_form(request, form)
@@ -188,11 +214,14 @@ def attachment_download(request, pk):
 def attachment_delete(request, pk):
     attachment = _visible_attachment_or_404(request, pk)
     complaint = attachment.complaint
-    if not complaint.is_draft or complaint.lodged_by_id != request.user.pk:
-        messages.error(request, "Files can be removed only from your own draft.")
+    if not workflow.can_remove_attachment(request.user, attachment):
+        messages.error(request, "You cannot remove this file now.")
         return redirect("complaint_detail", pk=complaint.pk)
     name = attachment.original_name
     attachment.file.delete(save=False)
     attachment.delete()
     messages.success(request, f"Removed {name}.")
-    return redirect("complaint_edit", pk=complaint.pk)
+    if complaint.is_draft:
+        return redirect("complaint_edit", pk=complaint.pk)
+    back = {"coordinator": "complaint_assign", "investigation": "complaint_investigation", "lab": "complaint_lab"}
+    return redirect(back.get(attachment.section, "complaint_detail"), pk=complaint.pk)

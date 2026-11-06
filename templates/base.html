@@ -8,14 +8,13 @@
 </head>
 <body>
 {% block shell %}
-{% with current=request.resolver_match.url_name %}
 <div class="app">
   <aside class="sidebar">
     <a class="logo" href="{% url 'home' %}"><span class="logo-chip">BEST</span><span class="logo-name">Complaints</span></a>
     <nav class="nav" aria-label="Main">
-      <a href="{% url 'home' %}"{% if current == 'home' or current == 'complaint_detail' %} class="active" aria-current="page"{% endif %}>My complaints</a>
-      <a href="{% url 'complaint_new' %}"{% if current == 'complaint_new' or current == 'complaint_edit' %} class="active" aria-current="page"{% endif %}>New complaint</a>
-      <a href="{% url 'help' %}"{% if current == 'help' %} class="active" aria-current="page"{% endif %}>Help</a>
+      <a href="{% url 'home' %}"{% if nav_current == 'home' %} class="active" aria-current="page"{% endif %}>My complaints</a>
+      <a href="{% url 'complaint_new' %}"{% if nav_current == 'new' %} class="active" aria-current="page"{% endif %}>New complaint</a>
+      <a href="{% url 'help' %}"{% if nav_current == 'help' %} class="active" aria-current="page"{% endif %}>Help</a>
       {% if user.is_staff %}<a href="{% url 'admin:index' %}">Settings</a>{% endif %}
     </nav>
     <div class="whoami">
@@ -47,7 +46,6 @@
     </main>
   </div>
 </div>
-{% endwith %}
 {% endblock %}
 {% block scripts %}{% endblock %}
 </body>
