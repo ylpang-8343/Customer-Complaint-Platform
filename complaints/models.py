@@ -1,6 +1,7 @@
 """Complaint records (proposal section 5.1) and the lists the MR maintains without IT."""
 
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -13,6 +14,8 @@ from django.utils import timezone
 from accounts.access import scope_to_user
 
 from . import rules
+
+DEFAULT_REMINDER_DAYS = 3  # proposal section 4: a reminder after 3 days unless the type says otherwise
 
 
 class ComplaintType(models.Model):
@@ -110,6 +113,24 @@ class ComplaintQuerySet(models.QuerySet):
             visible = self.filter(Q(pk__in=visible.values("pk")) | Q(factory_id__in=acting_for))
         return visible.filter(~Q(status=Complaint.Status.DRAFT) | Q(lodged_by=user))
 
+    def waiting(self):
+        """Complaints that are waiting for somebody to act: submitted, not yet closed, not deleted."""
+        return self.exclude(status__in=[Complaint.Status.DRAFT, Complaint.Status.CLOSED]).filter(
+            deleted_at__isnull=True
+        )
+
+    def overdue(self, now=None):
+        """Waiting complaints whose current stage has gone on longer than the days set for their type."""
+        now = now or timezone.now()
+        due = Q(pk__in=[])
+        for complaint_type in ComplaintType.objects.all():
+            due |= Q(
+                complaint_type=complaint_type,
+                status_changed_at__lte=now - timedelta(days=complaint_type.reminder_days),
+            )
+        due |= Q(complaint_type__isnull=True, status_changed_at__lte=now - timedelta(days=DEFAULT_REMINDER_DAYS))
+        return self.waiting().filter(due)
+
 
 class Complaint(models.Model):
     class Status(models.TextChoices):
@@ -203,6 +224,8 @@ class Complaint(models.Model):
 
     # Set while the complaint is handled (steps 3 to 8)
     status_changed_at = models.DateTimeField(default=timezone.now, editable=False)
+    last_reminder_at = models.DateTimeField(null=True, blank=True, editable=False)
+    reminder_count = models.PositiveSmallIntegerField(default=0, editable=False)
     received_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
@@ -252,6 +275,21 @@ class Complaint(models.Model):
     @property
     def status_label(self):
         return "Deleted" if self.is_deleted else self.get_status_display()
+
+    @property
+    def reminder_days(self):
+        return self.complaint_type.reminder_days if self.complaint_type_id else DEFAULT_REMINDER_DAYS
+
+    @property
+    def days_waiting(self):
+        """Whole days the complaint has been at its current stage (0 for a draft, closed or deleted one)."""
+        if not self.waiting_role:
+            return 0
+        return max(0, (timezone.now() - self.status_changed_at).days)
+
+    @property
+    def is_overdue(self):
+        return bool(self.waiting_role) and self.days_waiting >= self.reminder_days
 
     def assign_reference(self, today=None):
         """Give the complaint the next reference of its factory, for example FA/2026/0001."""
@@ -518,3 +556,39 @@ class Verification(models.Model):
 
     def __str__(self):
         return f"Verification of {self.complaint}"
+
+
+class NotificationLog(models.Model):
+    """One email the platform tried to send: who it went to, what it said and whether it got out."""
+
+    class Kind(models.TextChoices):
+        SUBMITTED = "submitted", "Complaint submitted"
+        ASSIGNED = "assigned", "Assigned to PIC"
+        FINDINGS = "findings", "Findings to HOD"
+        SCAR = "scar", "SCAR to external party"
+        HOD_RETURNED = "hod_returned", "Returned by HOD"
+        HOD_TO_FM = "hod_to_fm", "Response to FM"
+        FM_DECISION = "fm_decision", "FM decision"
+        CUSTOMER_REPLY = "customer_reply", "Reply to customer"
+        REPLY_SENT = "reply_sent", "Reply sent notice"
+        NOT_EFFECTIVE = "not_effective", "Action not effective"
+        REMINDER = "reminder", "Reminder"
+
+    complaint = models.ForeignKey(
+        Complaint, null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    subject = models.CharField(max_length=255)
+    to_addresses = models.TextField(blank=True)
+    cc_addresses = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    attachment_names = models.TextField(blank=True)
+    success = models.BooleanField(default=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.subject}"

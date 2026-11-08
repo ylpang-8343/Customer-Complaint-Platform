@@ -180,6 +180,8 @@ def _move(complaint, actor, action, to_status=None, comment=""):
     if to_status and to_status != previous:
         complaint.status = to_status
         complaint.status_changed_at = timezone.now()
+        complaint.last_reminder_at = None  # the reminder clock starts again at each stage
+        complaint.reminder_count = 0
     complaint.save()
     ComplaintEvent.objects.create(
         complaint=complaint,
@@ -192,11 +194,8 @@ def _move(complaint, actor, action, to_status=None, comment=""):
 
 
 def _notify(function, *args, **kwargs):
-    try:
-        return bool(function(*args, **kwargs))
-    except Exception:
-        logger.exception("Could not send %s", function.__name__)
-        return False
+    """Send a notification. A failure is written to the notification log and reported as False."""
+    return emails.deliver(function, *args, **kwargs)
 
 
 def store_files(complaint, files, user, section):
@@ -349,8 +348,16 @@ def save_lab(complaint, actor, acknowledged_on, remarks, results, files=()):
 # --- Step 4a: SCAR to an external party ----------------------------------------------------------
 
 
-def issue_scar(complaint, actor, party_type, party_name, contact_email, subject, message):
-    """Send the SCAR. If the email cannot be sent, nothing changes."""
+def issue_scar(complaint, actor, *args, **kwargs):
+    """Send the SCAR. If the email cannot be sent, nothing changes except a line in the notification log."""
+    try:
+        return _issue_scar(complaint, actor, *args, **kwargs)
+    except emails.DeliveryError as error:
+        emails.record_failure(error)  # written after the rollback, so the failure is kept
+        raise WorkflowError("The SCAR email could not be sent, so the SCAR was not issued. Try again later.")
+
+
+def _issue_scar(complaint, actor, party_type, party_name, contact_email, subject, message):
     _require(can_issue_scar(actor, complaint), "You cannot issue a SCAR for this complaint now.")
     with transaction.atomic():
         _lock(complaint)
@@ -366,9 +373,11 @@ def issue_scar(complaint, actor, party_type, party_name, contact_email, subject,
         )
         try:
             emails.send_scar(scar)
+        except emails.DeliveryError:
+            raise
         except Exception:
-            logger.exception("Could not email SCAR for %s", complaint.reference)
-            raise WorkflowError("The SCAR email could not be sent, so the SCAR was not issued. Try again later.")
+            logger.exception("Could not prepare the SCAR email for %s", complaint.reference)
+            raise WorkflowError("The SCAR email could not be prepared, so the SCAR was not issued.")
         complaint.cause = Complaint.Cause.EXTERNAL
         _move(complaint, actor, Action.SCAR_ISSUED, STATUS.PENDING_SCAR, comment=f"To {party_name} <{contact_email}>")
     return scar
@@ -458,6 +467,14 @@ def reply_problems(complaint):
 
 def send_reply(complaint, actor, subject, body, files=()):
     """Email the customer, keep a copy, and set the status to Customer Response Sent."""
+    try:
+        return _send_reply(complaint, actor, subject, body, files)
+    except emails.DeliveryError as error:
+        emails.record_failure(error)  # written after the rollback, so the failure is kept
+        raise WorkflowError("The email to the customer could not be sent, so nothing was changed. Try again later.")
+
+
+def _send_reply(complaint, actor, subject, body, files):
     _require(can_reply(actor, complaint), "You cannot reply to the customer now.")
     if not subject.strip() or not body.strip():
         raise WorkflowError("The reply needs a subject and a message.")
@@ -477,9 +494,11 @@ def send_reply(complaint, actor, subject, body, files=()):
             file.seek(0)
         try:
             emails.send_customer_reply(complaint, reply, mail_files, actor)
+        except emails.DeliveryError:
+            raise
         except Exception:
-            logger.exception("Could not email the customer reply for %s", complaint.reference)
-            raise WorkflowError("The email to the customer could not be sent, so nothing was changed. Try again later.")
+            logger.exception("Could not prepare the customer reply for %s", complaint.reference)
+            raise WorkflowError("The email to the customer could not be prepared, so nothing was changed.")
         reply.sent_at = timezone.now()
         reply.save()
         store_files(complaint, files, actor, Attachment.Section.REPLY)

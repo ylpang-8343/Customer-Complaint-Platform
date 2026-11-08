@@ -11,6 +11,7 @@ admin.site.site_title = "Complaint Platform admin"
 urlpatterns = [
     path("", complaint_views.home, name="home"),
     path("help/", complaint_views.help_page, name="help"),
+    path("notifications/", complaint_views.notification_log, name="notifications"),
     path("complaints/new/", complaint_views.complaint_form, name="complaint_new"),
     path("complaints/<int:pk>/", complaint_views.complaint_detail, name="complaint_detail"),
     path("complaints/<int:pk>/edit/", complaint_views.complaint_form, name="complaint_edit"),

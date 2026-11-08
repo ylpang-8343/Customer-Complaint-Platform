@@ -71,6 +71,8 @@ def progress(complaint, events):
         elif number == current:
             state = "current"
             note = returned or WAITING[complaint.status]
+            if complaint.is_overdue:
+                note += f" · {complaint.days_waiting} days, overdue"
         else:
             state, note = "todo", ""
         steps.append({"number": number, "label": label, "state": state, "note": note})

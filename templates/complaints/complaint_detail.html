@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ complaint.reference }}{% endblock %}
 {% block page_title %}{{ complaint.reference }} — {{ complaint.complaint_sub_type|default:complaint.complaint_type|default:"Customer complaint" }}{% endblock %}
-{% block scope %}{% if complaint.is_deleted %}Deleted — kept in the log with its reason.{% elif complaint.is_draft %}Draft — only you can see it, and only you can change it.{% elif complaint.status == "closed" %}Closed — read-only.{% elif waiting_role %}Waiting for: {{ waiting_role }}{% if waiting_users %} — {% for u in waiting_users %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% else %}Read-only.{% endif %}{% endblock %}
+{% block scope %}{% if complaint.is_deleted %}Deleted — kept in the log with its reason.{% elif complaint.is_draft %}Draft — only you can see it, and only you can change it.{% elif complaint.status == "closed" %}Closed — read-only.{% elif waiting_role %}Waiting for: {{ waiting_role }}{% if complaint.is_overdue %} — overdue: {{ complaint.days_waiting }} days at this stage, reminders every {{ complaint.reminder_days }} days{% endif %}{% if waiting_users %} — {% for u in waiting_users %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% else %}Read-only.{% endif %}{% endblock %}
 {% block content %}
 <section class="card head{% if complaint.is_deleted %} is-deleted{% endif %}">
   <div class="head-top">
@@ -164,6 +164,24 @@
   </dl>
 </section>
 {% endif %}
+{% endif %}
+
+{% if notifications is not None %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">@</span> Notifications <a class="button actions-right" href="{% url 'notifications' %}?q={{ complaint.reference|urlencode }}">Open the log</a></h2>
+  {% if complaint.reminder_count %}<p class="footnote">{{ complaint.reminder_count }} reminder{{ complaint.reminder_count|pluralize }} sent at this stage{% if complaint.last_reminder_at %}, the last on {{ complaint.last_reminder_at|date:"j M Y, H:i" }}{% endif %}.</p>{% endif %}
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>When</th><th>Kind</th><th>To</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for n in notifications %}
+        <tr><td>{{ n.created_at|date:"j M Y, H:i" }}</td><td>{{ n.get_kind_display }}</td><td>{{ n.to_addresses|default:"—" }}</td>
+          <td>{% if n.success %}<span class="status status-response_sent">Sent</span>{% else %}<span class="status status-pending_scar">Failed</span> <span class="muted">{{ n.error }}</span>{% endif %}</td></tr>
+        {% empty %}<tr><td class="empty" colspan="4">No emails yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endif %}
 
 {% if events %}

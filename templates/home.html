@@ -11,6 +11,7 @@
   <div class="kpi"><b>{{ totals.visible }}</b><span>Complaints I can see</span></div>
   <div class="kpi"><b>{{ totals.drafts }}</b><span>My drafts</span></div>
   <div class="kpi info"><b>{{ totals.waiting }}</b><span>Waiting for my action</span></div>
+  <div class="kpi bad"><b>{{ totals.overdue }}</b><span>Overdue (waiting longer than the reminder days)</span></div>
 </div>
 
 <section class="card">
@@ -25,6 +26,7 @@
     <div><label for="{{ filters.date_to.id_for_label }}">To</label>{{ filters.date_to }}</div>
     <div class="grow"><label for="{{ filters.q.id_for_label }}">Search</label>{{ filters.q }}</div>
     <div class="check"><label>{{ filters.mine }} {{ filters.mine.label }}</label></div>
+    <div class="check"><label>{{ filters.overdue }} {{ filters.overdue.label }}</label></div>
     <button class="button primary" type="submit">Apply</button>
     <a class="button" href="{% url 'home' %}">Reset</a>
   </form>
@@ -44,7 +46,7 @@
           <td>{{ c.lodged_by }}</td>
           <td>{{ c.created_at|date:"j M Y" }}</td>
           <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span></td>
-          <td>{% if c.pk in waiting_ids %}<strong class="mine">You</strong>{% else %}<span class="muted">{{ c.waiting_role|default:"—" }}</span>{% endif %}</td>
+          <td>{% if c.pk in waiting_ids %}<strong class="mine">You</strong>{% else %}<span class="muted">{{ c.waiting_role|default:"—" }}</span>{% endif %}{% if c.is_overdue %} <span class="tag overdue" title="Waiting {{ c.days_waiting }} days; reminders every {{ c.reminder_days }} days">{{ c.days_waiting }} d</span>{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td class="empty" colspan="8">{% if filtered %}No complaints match the current filters.{% else %}No complaints yet. Use <strong>New complaint</strong> to record the first one.{% endif %}</td></tr>

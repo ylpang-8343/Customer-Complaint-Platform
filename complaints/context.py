@@ -12,4 +12,6 @@ def navigation(request):
         return {"nav_current": "home"}
     if name in ("complaint_new", "complaint_edit"):
         return {"nav_current": "new"}
+    if name == "notifications":
+        return {"nav_current": "notifications"}
     return {"nav_current": "help" if name == "help" else ""}

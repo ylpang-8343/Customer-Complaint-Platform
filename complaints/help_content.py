@@ -5,7 +5,7 @@ from accounts.models import Role
 # (key, title, description, who). The guide that matches the signed-in role is highlighted.
 GUIDES = [
     ("lodger", "Lodgers", "Record a complaint, save it as a draft, attach files and submit it to the Coordinator.", "Every employee"),
-    ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case.", "Management Representative"),
+    ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case. Sets the reminder days and reads the notifications.", "Management Representative"),
     ("pic", "PICs and laboratory", "Investigate a complaint, fill in the laboratory section, issue a SCAR if the cause is external, and reply to the customer.", "PIC · Lab staff"),
     ("approver", "HOD and Factory Manager", "The HOD decides whether a complaint is valid; the FM approves or rejects the response.", "HOD · FM"),
     ("management", "Top management", "See the complaints of every factory, and where each one is waiting.", "Group management"),
@@ -133,6 +133,21 @@ TASKS = [
         [
             "After the reply is sent, choose Effectiveness check and closing. Record the first verified date and its result, and the second if there is one, then Close the case.",
             "If the corrective action did not work, choose Not effective: return to PIC and say why. The case goes back to the PIC.",
+        ],
+    ),
+    (
+        "What reminders will I get?",
+        [
+            "When a complaint has waited for you longer than 3 days, the platform emails you a reminder. The Coordinator can set a different number of days for each complaint type in Settings.",
+            "You are reminded again every 3 days until you act. Acting, which moves the complaint to the next stage, starts the count again. The reminder goes to whoever the complaint is waiting for: the Coordinator, the PIC (also while a SCAR is pending), the HOD or the FM. If a HOD or FM is away, their deputy is reminded.",
+            "On My complaints, an Overdue tag with the number of days shows next to a complaint that has waited longer than its reminder days. Tick Overdue to list them.",
+        ],
+    ),
+    (
+        "Where can I see which emails were sent?",
+        [
+            "The Coordinator and top management have Notifications in the menu. It lists every email the platform sent: who it went to, the subject and text, the attachments, and whether it was delivered.",
+            "A failed email never stops a step, but it is marked Failed with the reason. Tell the people concerned that the complaint is waiting for them. Each complaint also shows its own emails at the bottom of its page.",
         ],
     ),
 ]

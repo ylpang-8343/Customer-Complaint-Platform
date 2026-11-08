@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build steps 1 (foundation), 2 (lodging) and 3 (workflow) of Section 7 are done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow) and 4 (reminders and notification log) of Section 7 are done; see the README for how to run it.
 
 ## 1. Approach
 
@@ -108,7 +108,7 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 1. **Foundation (done):** project setup, users and roles, factory-scoped access, audit log, MR-maintained settings, seed data for the five factories.
 2. **Lodging (done):** complaint form, conditional fields, draft/submit validation, reference numbers.
 3. **Workflow (done):** assignment, PIC investigation, lab section, SCAR, HOD review, FM approval, customer reply, closing, with the emails for each step.
-4. **Reminders** and notification log.
+4. **Reminders and notification log (done).**
 5. **Dashboard and complaint log** with Excel export.
 6. **PDF export** in the layout of the current report, and the 6-month historical import from a spreadsheet template.
 7. **Tests and demo data** (see Section 9).
@@ -135,6 +135,9 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 | Step 7: who the customer reply goes to. | The email address on the complaint, with a copy to the PIC who sends it. If it cannot be sent the status does not change. The lodger is not emailed. |
 | Step 8: closing. | The first verified date and its result are required to close; the second check is optional. "Not effective" needs a comment and goes back to PIC investigation. |
 | Deleting. | The Coordinator can delete any submitted complaint (never a draft). It keeps its stage, shows as Deleted with the reason, and no further action is possible. Nobody is emailed. |
+| Step 4: what "not done within 3 days" means. | Calendar days at the current stage, counted from the moment the complaint reached it. The first reminder goes at the number of days set for the complaint type (default 3), then again every that-many days until the stage changes. Weekends and public holidays are not skipped. |
+| Step 4: who is reminded. | The person responsible for the stage: the Coordinator (assignment, effectiveness check), the PIC (investigation, pending SCAR, reply due), the HOD or the FM, or their deputy while they are away. If nobody is set up for the stage, the reminder goes to the Coordinator and says so. Nobody is copied. |
+| Step 4: the notification log. | Every email is logged with recipients, text, attachments and result, including failures and emails with no address to go to. It is visible to the Coordinator and top management only. |
 | PDF summary. | A simple summary PDF is built now (ReportLab) for the assignment email. Step 6 replaces it with the layout of the current report. |
 
 ## 9. Quality and risks

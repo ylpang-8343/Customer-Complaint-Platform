@@ -86,6 +86,7 @@ button.link.danger { color: var(--bad); margin-left: .5rem; }
 .kpi span { font-size: .78rem; color: var(--muted); }
 .kpi.info b { color: var(--info); }
 .kpi.ok b { color: var(--ok); }
+.kpi.bad b { color: var(--bad); }
 
 /* Filters */
 .filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; margin-bottom: 1rem; }
@@ -114,6 +115,9 @@ table.list td.empty { text-align: center; color: var(--muted); padding: 1.4rem; 
 .status-deleted::before { background: transparent; border: 2px solid var(--muted); }
 .status-deleted { color: var(--muted); text-decoration: line-through; }
 .mine { color: var(--accent); }
+.tag.overdue { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; }
+details.mail summary { cursor: pointer; }
+details.mail pre { white-space: pre-wrap; font: inherit; font-size: .8rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .6rem .8rem; margin: .4rem 0; max-width: 46rem; }
 .legend { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: .78rem; display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; align-items: center; }
 .pager { text-align: center; font-size: .85rem; margin: 1rem 0 0; }
 

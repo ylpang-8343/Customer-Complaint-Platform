@@ -16,6 +16,7 @@ from .models import (
     ComplaintMethod,
     ComplaintSubType,
     ComplaintType,
+    NotificationLog,
 )
 
 
@@ -65,6 +66,7 @@ class ComplaintFilterForm(forms.Form):
         required=False, choices=[("", "All statuses"), *Complaint.Status.choices, ("deleted", "Deleted")]
     )
     mine = forms.BooleanField(required=False, label="Waiting for my action")
+    overdue = forms.BooleanField(required=False, label="Overdue")
     date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     q = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": "Reference, buyer, product, contract..."}))
@@ -79,6 +81,8 @@ class ComplaintFilterForm(forms.Form):
             queryset = queryset.filter(status=data["status"], deleted_at__isnull=True)
         if data.get("mine") and waiting_for_me is not None:
             queryset = queryset.filter(waiting_for_me)
+        if data.get("overdue"):
+            queryset = queryset.overdue()
         if data.get("date_from"):
             queryset = queryset.filter(created_at__date__gte=data["date_from"])
         if data.get("date_to"):
@@ -92,6 +96,34 @@ class ComplaintFilterForm(forms.Form):
                 | Q(contract_number__icontains=text)
                 | Q(contact_person__icontains=text)
             )
+        return queryset
+
+
+class NotificationFilterForm(forms.Form):
+    """The filter bar of the notification log."""
+
+    q = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={"placeholder": "Reference, address or subject..."})
+    )
+    kind = forms.ChoiceField(required=False, choices=[("", "All kinds"), *NotificationLog.Kind.choices])
+    result = forms.ChoiceField(
+        required=False, choices=[("", "Sent and failed"), ("sent", "Sent"), ("failed", "Failed")]
+    )
+
+    def apply(self, queryset):
+        data = self.cleaned_data
+        if data.get("q"):
+            text = data["q"].strip()
+            queryset = queryset.filter(
+                Q(complaint__reference__icontains=text)
+                | Q(to_addresses__icontains=text)
+                | Q(cc_addresses__icontains=text)
+                | Q(subject__icontains=text)
+            )
+        if data.get("kind"):
+            queryset = queryset.filter(kind=data["kind"])
+        if data.get("result"):
+            queryset = queryset.filter(success=data["result"] == "sent")
         return queryset
 
 

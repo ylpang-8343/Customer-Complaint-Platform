@@ -38,6 +38,25 @@ The top of every complaint shows a progress bar (Submitted, Assignment, Investig
 Customer reply, Effectiveness and closing) with the date each stage was done and who the complaint is waiting
 for now. When the HOD, FM or Coordinator sends it back, the marker moves back to Investigation and says why.
 
+## Reminders and notifications
+
+A complaint that has waited for the same person for longer than its reminder days (3 unless the Coordinator
+changed it for that complaint type in Settings) gets a reminder email, repeated every that-many days until
+somebody acts. Run the job once a day:
+
+```powershell
+.venv\Scripts\python manage.py send_reminders             # send what is due
+.venv\Scripts\python manage.py send_reminders --dry-run   # only list it
+```
+
+Schedule it with Windows Task Scheduler (daily, program `.venv\Scripts\python.exe`, arguments
+`manage.py send_reminders`, start in the project folder), or with cron on Linux:
+`0 8 * * * cd /path/to/project && .venv/bin/python manage.py send_reminders`.
+A reminder that cannot be emailed is tried again the next time the job runs.
+
+Every email the platform sends, or fails to send, is written to the notification log. The Coordinator and top
+management open it from the menu (Notifications), and each complaint shows its own emails to them.
+
 ## Screenshots
 
 Taken from the running app with the demo data (`docs/img/`):
@@ -53,6 +72,7 @@ Taken from the running app with the demo data (`docs/img/`):
 | Help page, a filtered list, and the phone-width list and form | `21-help.png`, `22-home-filtered.png`, `23-mobile-list.png`, `24-mobile-form.png` |
 
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
+| Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
 The settings and audit-log pages (`06` to `14`) are Django's standard admin site and are not
 restyled. Everything else uses the shared layout in `templates/base.html` and

@@ -9,18 +9,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.access import factories_for
+from accounts.models import Role
 
 from . import people, rules, workflow
 from .progress import progress
-from .emails import notify_coordinator_of_submission
-from .forms import ComplaintFilterForm, ComplaintForm
+from . import emails
+from .forms import ComplaintFilterForm, ComplaintForm, NotificationFilterForm
 from .help_content import GUIDE_FOR_ROLE, GUIDES, TASKS
-from .models import Attachment, Complaint, ComplaintType
+from .models import Attachment, Complaint, ComplaintType, NotificationLog
 from .summary import summary_sections
 
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
+NOTIFICATION_PAGE_SIZE = 50
+NOTIFICATION_VIEWERS = (Role.COORDINATOR, Role.MANAGEMENT)  # who may read the notification log
 
 
 @login_required
@@ -49,6 +52,7 @@ def home(request):
                 "visible": visible.count(),
                 "drafts": visible.filter(status=Complaint.Status.DRAFT, lodged_by=request.user).count(),
                 "waiting": visible.filter(waiting).count(),
+                "overdue": visible.overdue().count(),
             },
         },
     )
@@ -103,6 +107,9 @@ def complaint_detail(request, pk):
             "reply": getattr(complaint, "reply", None),
             "verification": getattr(complaint, "verification", None),
             "events": events,
+            "notifications": (
+                complaint.notifications.all() if user.role in NOTIFICATION_VIEWERS else None
+            ),
             "progress": progress(complaint, events),
             "handled": not complaint.is_draft and complaint.status != Complaint.Status.SUBMITTED,
         },
@@ -136,11 +143,7 @@ def _render_form(request, form):
 
 
 def _notify_coordinator(request, complaint):
-    try:
-        sent = notify_coordinator_of_submission(complaint)
-    except Exception:
-        logger.exception("Could not email the Coordinator about %s", complaint.reference)
-        sent = 0
+    sent = emails.deliver(emails.notify_coordinator_of_submission, complaint)
     if not sent:
         messages.warning(
             request,
@@ -225,3 +228,28 @@ def attachment_delete(request, pk):
         return redirect("complaint_edit", pk=complaint.pk)
     back = {"coordinator": "complaint_assign", "investigation": "complaint_investigation", "lab": "complaint_lab"}
     return redirect(back.get(attachment.section, "complaint_detail"), pk=complaint.pk)
+
+
+@login_required
+def notification_log(request):
+    """Every email the platform sent, or tried to send. For the Coordinator and top management."""
+    if request.user.role not in NOTIFICATION_VIEWERS:
+        messages.error(request, "Notifications are for the Coordinator and top management.")
+        return redirect("home")
+    filters = NotificationFilterForm(request.GET)
+    logs = NotificationLog.objects.select_related("complaint")
+    if filters.is_valid():
+        logs = filters.apply(logs)
+    page = Paginator(logs, NOTIFICATION_PAGE_SIZE).get_page(request.GET.get("page"))
+    query = request.GET.copy()
+    query.pop("page", None)
+    return render(
+        request,
+        "notifications.html",
+        {
+            "page": page,
+            "filters": filters,
+            "querystring": query.urlencode(),
+            "failed": NotificationLog.objects.filter(success=False).count(),
+        },
+    )
