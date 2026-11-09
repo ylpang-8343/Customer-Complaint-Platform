@@ -24,5 +24,6 @@ class ComplaintsConfig(AppConfig):
             models.Scar,
             models.CustomerReply,
             models.Verification,
+            models.ImportBatch,
         ):
             register(model)

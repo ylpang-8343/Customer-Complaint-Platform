@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block page_title %}Import Past Complaints — Customer Complaints{% endblock %}
+{% block scope %}Coordinator — load the complaints of the past months from a spreadsheet. The file is checked first; nothing is saved until you confirm.{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">1</span> Get the template
+    <a class="button primary actions-right" href="{% url 'import_template' %}">Download the template (.xlsx)</a>
+  </h2>
+  <p>Fill in one row for each past complaint, up to {{ max_rows }}. Only <strong>Factory, Issue date, Complaint from and Complaint type</strong> must be filled in; leave a cell empty if the old log did not have it.</p>
+  <ul class="plain">
+    <li>Each complaint gets a platform reference (for example FA/2026/0007) in date order, so the running numbers carry on. The number it had in the old log is kept.</li>
+    <li>Its stage comes from the dates: a closing date makes it <em>Closed</em>, a reply date <em>Customer Response Sent</em>, any investigation or decision <em>PIC investigation</em>, otherwise <em>Submitted</em>. A complaint that is still open starts its reminders at the import.</li>
+    <li>A reply date or a closing date needs <em>Valid or invalid</em>. No emails are sent.</li>
+  </ul>
+  <details class="howto-columns">
+    <summary>What each column holds</summary>
+    <div class="table-wrap">
+      <table class="list">
+        <thead><tr><th>Column</th><th>Needed</th><th>What to enter</th><th>Example</th></tr></thead>
+        <tbody>
+          {% for c in columns %}<tr><td>{{ c.header }}</td><td>{% if c.required %}<strong>Yes</strong>{% endif %}</td><td>{{ c.help }}</td><td class="muted">{{ c.example }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section class="card">
+  <h2 class="section-title"><span class="badge">2</span> Upload the file</h2>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% include "complaints/_field.html" with field=form.file %}
+    <p class="footnote">An Excel workbook (.xlsx) of up to {{ max_mb }} MB. You will see what is wrong, or what will be imported, before anything is saved.</p>
+    <button type="submit" class="button primary">Upload and check</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2 class="section-title"><span class="badge">3</span> Earlier uploads</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>File</th><th>Uploaded</th><th>By</th><th class="num">Rows</th><th class="num">Complaints imported</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for b in batches %}
+        <tr>
+          <td><a href="{% url 'import_preview' b.pk %}">{{ b.original_name }}</a></td>
+          <td>{{ b.uploaded_at|date:"j M Y, H:i" }}</td>
+          <td>{{ b.uploaded_by }}</td>
+          <td class="num">{{ b.rows_total|default:"—" }}</td>
+          <td class="num">{{ b.imported_count|default:"—" }}</td>
+          <td>{{ b.get_status_display }}</td>
+        </tr>
+        {% empty %}<tr><td class="empty" colspan="6">Nothing has been uploaded yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

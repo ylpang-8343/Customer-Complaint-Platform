@@ -2,7 +2,7 @@
 
     python tools/screenshots/run_all.py
 
-Needs, in the Python that runs it (not the project's own environment): ``pip install playwright openpyxl`` and
+Needs, in the Python that runs it (not the project's own environment): ``pip install playwright openpyxl pypdfium2 pillow`` and
 Google Chrome installed. The app itself is started from the project's .venv. Every script starts from a fresh
 demo database, so this erases db.sqlite3 and media/ in the project folder; the demo data is put back at the end.
 A script that finds something wrong prints FAIL and the runner exits with a non-zero code.
@@ -22,6 +22,7 @@ SCRIPTS = [
     ("process.py", "One complaint through steps 1 to 8 (25-43)"),
     ("reminders.py", "Reminders and notifications (44-49)"),
     ("reports.py", "Dashboard, complaint log, Excel export (50-56)"),
+    ("documents.py", "Import of past complaints, PDF report, audit pack (57-66)"),
 ]
 
 

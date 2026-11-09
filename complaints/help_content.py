@@ -5,7 +5,7 @@ from accounts.models import Role
 # (key, title, description, who). The guide that matches the signed-in role is highlighted.
 GUIDES = [
     ("lodger", "Lodgers", "Record a complaint, save it as a draft, attach files and submit it to the Coordinator.", "Every employee"),
-    ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case. Sets the reminder days and reads the notifications.", "Management Representative"),
+    ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case. Sets the reminder days, reads the notifications and loads past complaints.", "Management Representative"),
     ("pic", "PICs and laboratory", "Investigate a complaint, fill in the laboratory section, issue a SCAR if the cause is external, and reply to the customer.", "PIC · Lab staff"),
     ("approver", "HOD and Factory Manager", "The HOD decides whether a complaint is valid; the FM approves or rejects the response.", "HOD · FM"),
     ("management", "Top management", "See the complaints of every factory, the dashboard and the complaint log, and where each complaint is waiting.", "Group management"),
@@ -148,6 +148,21 @@ TASKS = [
         [
             "Open Complaint log in the menu. It lists every complaint in the columns of the current log, oldest first, with the summary under the table. Choose the factories and dates, then Export to Excel.",
             "The file has the same columns in the same order, and the summary under the table. The CAR number is not used: the complaint reference takes its place. Only complaints you are allowed to see are included.",
+        ],
+    ),
+    (
+        "How do I get a complaint as a PDF for an audit?",
+        [
+            "Open the complaint and choose PDF report. It holds everything in the record: the complaint, the Coordinator section, the investigation and response, any SCAR, the laboratory section, the HOD decision, the review and approval records, the reply to the customer, the verification and closing, the list of documents and the full history, with page numbers and who printed it.",
+            "Choose Audit pack for a zip file with that PDF, the SCARs as sent, the reply and every attached file, in a folder for each section. This is what to hand to an FSSC or ISO auditor. Only complaints you are allowed to see can be downloaded.",
+        ],
+    ),
+    (
+        "As Coordinator, how do I load the complaints of the past months?",
+        [
+            "Choose Import in the menu and download the template. Fill in one row for each past complaint, up to 2000. Only Factory, Issue date, Complaint from and Complaint type must be filled in; leave a cell empty if the old log did not have it. The columns follow the current complaint log.",
+            "Upload the file. It is checked first and every mistake is listed with its row and column; nothing is saved until every row is correct and you choose Import. Then each row becomes a complaint with a platform reference, in date order, and the number it had in the old log is kept. No emails are sent.",
+            "The stage comes from the dates: a closing date makes it Closed, a reply date Customer Response Sent (both need Valid or invalid), any investigation or decision makes it PIC investigation, otherwise Submitted. An open imported complaint waits for you to assign PICs, and its reminders start at the import.",
         ],
     ),
     (

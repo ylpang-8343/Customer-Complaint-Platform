@@ -14,6 +14,8 @@ def navigation(request):
         return {"nav_current": "new"}
     if name in ("notifications", "dashboard"):
         return {"nav_current": name}
+    if name in ("import_home", "import_template", "import_preview"):
+        return {"nav_current": "import"}
     if name in ("complaint_log", "log_export"):
         return {"nav_current": "log"}
     return {"nav_current": "help" if name == "help" else ""}

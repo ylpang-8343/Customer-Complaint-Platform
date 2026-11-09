@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow), 4 (reminders and notification log) and 5 (dashboard and complaint log) of Section 7 are done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow), 4 (reminders and notification log), 5 (dashboard and complaint log) and 6 (PDF report and import of past complaints) of Section 7 are done; see the README for how to run it.
 
 ## 1. Approach
 
@@ -110,7 +110,7 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 3. **Workflow (done):** assignment, PIC investigation, lab section, SCAR, HOD review, FM approval, customer reply, closing, with the emails for each step.
 4. **Reminders and notification log (done).**
 5. **Dashboard and complaint log (done)** with Excel export.
-6. **PDF export** in the layout of the current report, and the 6-month historical import from a spreadsheet template.
+6. **PDF export and import (done):** the PDF report and audit pack, and the 6-month historical import from a spreadsheet template.
 7. **Tests and demo data** (see Section 9).
 
 ## 8. Gaps in the proposal and assumed handling
@@ -142,7 +142,13 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 | Step 5: the "Remarks" column of the log. | The proposal lists Remarks without saying whose. It is filled from the Coordinator's closing comment. IMS remarks (the Coordinator's remarks when assigning) have their own column. |
 | Step 5: what "complaint date" means for the period filter, and who may export. | The date the complaint was lodged. Every role gets the dashboard, the log and the export for the complaints it may already see, so a factory PIC exports only their factory, and a lodger only their own. |
 | Step 5: open complaint aging. | Calendar days since the complaint was submitted, in bands of 0-3, 4-7, 8-14, 15-30 and over 30 days. |
-| PDF summary. | A simple summary PDF is built now (ReportLab) for the assignment email. Step 6 replaces it with the layout of the current report. |
+| Step 6: the layout of the current Customer Complaint Report. | The current report was not supplied. The PDF follows what the proposal says it holds: the complaint, a laboratory section, an IMS (Coordinator) section, the response, approvals, the reply and the closing, then the documents and the history. To match the old layout, change the order or wording in `complaints/report_pdf.py`; the Business Type and Type of Management fields stay out (open point 4). |
+| Step 6: PDF and audit pack for audits. | Anyone who can see a complaint can download its PDF report and audit pack. The audit pack is a zip: the PDF, the SCARs as sent, the reply as text and every attached file by section. A file missing from storage is listed, not fatal. |
+| Step 6: text in the PDF. | The PDF uses the standard fonts. A character outside Western European writing (for example Chinese in a buyer's name) prints as `?`. Fonts for other scripts can be added if the factories need them. |
+| Step 6: what an imported complaint becomes. | A new platform reference in date order (the running numbers carry on), with the old number kept in "Number in the previous log". The person who received it is the name in the old log, never the importing Coordinator. The stage comes from the dates (closing date: Closed; reply date: Customer Response Sent; any investigation or decision: PIC investigation; otherwise Submitted). A reply or closing date needs Valid or invalid, so the dashboard classes stay right. |
+| Step 6: how the import is controlled. | Coordinator only. The file is checked first and nothing is saved until it has no errors and the Coordinator confirms; then every row is saved together or none. A row older than 6 months is a warning, not an error. A date in the future, an unknown factory, type, sub-type or choice, a bad email, a number used twice for a factory, and a deleted row without a reason are errors. Up to 2000 rows and 5 MB. No emails are sent. |
+| Step 6: reminders for imported complaints. | An imported complaint that is still open starts its reminder clock at the import, not at its old issue date, so importing does not send a flood of reminders. Aging on the dashboard still counts from the old issue date. |
+| PDF summary. | A short summary PDF is attached to the email that assigns PICs (as the proposal says). The full PDF report for audits is separate (step 6). |
 
 ## 9. Quality and risks
 

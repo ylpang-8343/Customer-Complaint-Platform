@@ -224,6 +224,15 @@ class Complaint(models.Model):
 
     # Set while the complaint is handled (steps 3 to 8)
     status_changed_at = models.DateTimeField(default=timezone.now, editable=False)
+    # Complaints loaded from the previous log (build step 6) carry where they came from
+    is_imported = models.BooleanField(default=False, editable=False)
+    legacy_reference = models.CharField(
+        "Number in the previous log", max_length=60, blank=True, help_text="The number the complaint had before the platform."
+    )
+    imported_lodger_name = models.CharField(max_length=100, blank=True, help_text="Who received it, as written in the previous log.")
+    import_batch = models.ForeignKey(
+        "ImportBatch", null=True, blank=True, on_delete=models.SET_NULL, related_name="complaints", editable=False
+    )
     last_reminder_at = models.DateTimeField(null=True, blank=True, editable=False)
     reminder_count = models.PositiveSmallIntegerField(default=0, editable=False)
     received_by = models.ForeignKey(
@@ -256,6 +265,13 @@ class Complaint(models.Model):
     @property
     def is_draft(self):
         return self.status == self.Status.DRAFT
+
+    @property
+    def lodger_display(self):
+        """Who lodged it. For an imported complaint, the name in the previous log, never the person who imported it."""
+        if self.is_imported:
+            return self.imported_lodger_name or "Not recorded"
+        return str(self.lodged_by)
 
     @property
     def is_deleted(self):
@@ -404,6 +420,7 @@ class ComplaintEvent(models.Model):
         NOT_EFFECTIVE = "not_effective", "Action not effective, returned to the PIC"
         CLOSED = "closed", "Case closed"
         DELETED = "deleted", "Deleted"
+        IMPORTED = "imported", "Imported from the previous log"
 
     complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name="events")
     action = models.CharField(max_length=20, choices=Action.choices)
@@ -592,3 +609,32 @@ class NotificationLog(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()}: {self.subject}"
+
+
+def import_path(instance, filename):
+    return f"imports/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class ImportBatch(models.Model):
+    """One spreadsheet of past complaints: kept so the import can be checked first and traced afterwards."""
+
+    class Status(models.TextChoices):
+        PREVIEW = "preview", "Checked, not imported yet"
+        IMPORTED = "imported", "Imported"
+        DISCARDED = "discarded", "Discarded"
+
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField(default=timezone.now)
+    original_name = models.CharField(max_length=255)
+    file = models.FileField(upload_to=import_path)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
+    rows_total = models.PositiveIntegerField(default=0)
+    imported_count = models.PositiveIntegerField(default=0)
+    imported_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-uploaded_at", "-id"]
+        verbose_name_plural = "import batches"
+
+    def __str__(self):
+        return f"{self.original_name} ({self.get_status_display()})"

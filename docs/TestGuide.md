@@ -18,10 +18,11 @@ Everything here uses fictional demo data.
 | Reminders after 3 days (set per complaint type), notification log | Yes |
 | Dashboard, complaint log, Excel export | Yes |
 | Access by role and factory, change log, lists the Coordinator maintains | Yes |
-| PDF export in the layout of the current report, upload of the past 6 months | Not built yet (build step 6) |
+| PDF report of a complaint, audit pack | Yes. The proposal's "layout of the current Customer Complaint Report" could not be copied because that report was not supplied; the sections follow what the proposal says it holds |
+| Upload of the past 6 months from a spreadsheet template | Yes |
 | Traders' view | Phase 2, out of scope |
 
-The PDF summary that is mailed to PICs (and the SCAR PDF) are built; only the layout of the current Customer Complaint Report is still to come.
+The short PDF summary that is mailed to PICs (and the SCAR PDF) are separate from the full PDF report.
 
 ## 2. Before you start
 
@@ -61,9 +62,9 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 .venv\Scripts\python -m pytest tests\test_workflow.py -k hod     # only some tests
 ```
 
-They take about a minute and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
+They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 181 passed.** Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 227 passed.** Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
@@ -76,6 +77,8 @@ They take about a minute and use a temporary database and a temporary folder for
 | `tests/test_progress.py` | 6 | The progress bar at the top of a complaint |
 | `tests/test_reminders.py` | 23 | The notification log (including failures), when reminders are due and to whom, repeats, per-type days, deputies, retry after a failure, the Overdue flags |
 | `tests/test_reports.py` | 28 | Dashboard figures and filters, scope by role, the log columns, the Excel file (columns, dates, summary, scope, formula-like text) |
+| `tests/test_report_pdf.py` | 13 | The PDF report (every section, page numbers, laboratory section only with a sample, deleted banner, unsupported characters, very long text, who may download) and the audit pack (contents, duplicate file names, missing files) |
+| `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
 
@@ -361,6 +364,60 @@ Expected: the menu becomes a bar across the top, nothing makes the page scroll s
 
 - [ ] Pass
 
+### I. PDF report and audit pack
+
+**T27 PDF report** (`mr`, `fa.pic`, `fb.pic`)
+1. Open a complaint that went through every step (or lodge one and take it through T07 to T15). Choose **PDF report**.
+2. Open the PDF. Then try the same address as `fb.pic`.
+
+Expected: a PDF with the sections *Lodged, Complaint, Transport, Description, Contact at the buyer, Coordinator section (IMS), Investigation and response, SCAR to an external party, Laboratory section* (only when a sample was sent), *HOD decision, Review and approval records, Reply to the customer, Effectiveness and closing, Documents* and *History*. A blank field shows a dash. Every page has *Page x of y*, the reference, and who printed it and when. A deleted complaint carries a red banner with its reason. A buyer name in Chinese or another non-Latin script shows `?` for the letters (a known limit). `fb.pic` gets a not-found page.
+
+![Page 1](img/63-pdf-report-page-1.png) ![Page 2](img/64-pdf-report-page-2.png)
+
+- [ ] Pass
+
+**T28 Audit pack** (`mr`)
+1. On the same complaint choose **Audit pack** and open the zip.
+
+Expected: a folder named after the reference with the PDF report, the SCARs as sent (`scar/`), the reply (`reply/reply-to-customer.txt`) and every attached file in `documents/` with a folder for each section (complaint form, investigation, lab, scar, reply). Two files with the same name are both kept. A draft has no audit pack.
+
+![The buttons](img/62-detail-report-buttons.png)
+
+- [ ] Pass
+
+### J. Import of past complaints (Coordinator)
+
+**T29 The template** (`mr`, then `fa.pic`)
+1. Choose **Import** and **Download the template**. Open it in Excel.
+2. As `fa.pic` try the address `/import/`.
+
+Expected: the workbook has the sheets *Instructions* (what each column holds, with an example), *Complaints* (44 columns, the four required ones in dark headers, drop-downs for the choice columns) and *Lists* (the factories, types, sub-types and choices from Settings). `fa.pic` has no Import in the menu and is sent back to the list with a message.
+
+![Import page](img/57-import-page.png)
+
+- [ ] Pass
+
+**T30 A file with mistakes** (`mr`)
+1. Fill in several rows. Make a few mistakes on purpose: an unknown factory (`FZ`), a mistyped complaint type, a reply date with no *Valid or invalid*, a closing date in the future, a bad email address, a deleted row with no reason, the same old number twice for one factory.
+2. Upload the file.
+
+Expected: nothing is saved. The page lists every mistake with its row and column, shows what each good row would become, and has no *Import* button. A date more than 6 months old, or a delivery date after the issue date, is only a warning. A file that is not a workbook, has no complaints, lacks a required header, or has more than 2000 rows is refused with a clear message.
+
+![Mistakes](img/58-import-errors.png)
+
+- [ ] Pass
+
+**T31 Import the corrected file** (`mr`, then others)
+1. Correct the file, upload it, read *What would be imported*, and choose **Import**.
+2. Open the imported complaints, the Dashboard and the Complaint log. Choose Import again on the same file.
+3. Assign PICs to an open imported complaint and take it on through the normal steps.
+
+Expected: each row becomes a complaint with a new reference (for example `FA/2026/0001`) in date order and the next complaint lodged by hand carries on from the last number. The stage comes from the dates (a closing date: *Closed*; a reply date: *Customer Response Sent*; any investigation or decision: *PIC investigation*; otherwise *Submitted*). The page says *Imported from the previous log* and shows the old number; the person who received it is the name in the old log. They are counted in the Dashboard and listed in the Log and the Excel file. No emails are sent. A second upload of the same old numbers is refused. An open imported complaint is not overdue at once: its reminders start at the import, and until PICs are assigned the Coordinator is the one reminded.
+
+![Preview](img/59-import-preview.png) ![Imported](img/60-import-done.png) ![An imported complaint](img/61-detail-imported.png)
+
+- [ ] Pass
+
 ## 5. Which scenario tests which part of the proposal
 
 | Proposal | Scenarios |
@@ -377,6 +434,8 @@ Expected: the menu becomes a bar across the top, nothing makes the page scroll s
 | Reminders | T19, T20 |
 | Log of changes; notifications | T21, T24 |
 | Dashboard and complaint log | T22, T23 |
+| PDF report and audit pack (FSSC, ISO) | T27, T28 |
+| Upload of past complaints | T29, T30, T31 |
 | Access by role and factory | T02, T06, T11, T22, T23 |
 | Progress and history | T16 |
 
@@ -392,11 +451,11 @@ Expected: the menu becomes a bar across the top, nothing makes the page scroll s
 The images in `docs/img/` are made by driving the real application in Chrome, and the same scripts check what each page shows (for example that a laboratory PIC is required, that *Submit to HOD* is locked while a SCAR is pending, and that the Excel file has the right columns). To make them again:
 
 ```powershell
-pip install playwright openpyxl          # in any Python environment; Google Chrome must be installed
+pip install playwright openpyxl pypdfium2 pillow   # in any Python environment; Google Chrome must be installed
 python tools\screenshots\run_all.py
 ```
 
-It runs five scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
+It runs six scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
 
 | Script | Images |
 |---|---|
@@ -405,16 +464,18 @@ It runs five scripts one after the other, prints how many screenshots were saved
 | `process.py` | 25 to 43 (one complaint through steps 1 to 8) |
 | `reminders.py` | 44 to 49 |
 | `reports.py` | 50 to 56 |
+| `documents.py` | 57 to 66 (the import, the PDF report and the audit pack) |
 
 ## 8. Not covered
 
 - Real mail delivery. The platform needs a company mailbox or mail service, set up and tested before the pilot (proposal section 10). Test with the real server settings before going live.
 - Large volumes, speed, and backups.
 - Browsers other than Chrome, and screen readers, by hand.
-- Build step 6 (PDF in the layout of the current report, past complaints) and Phase 2.
+- The exact layout of the current Customer Complaint Report (it was not supplied), and non-Latin scripts in the PDF.
+- Phase 2.
 
 ## 9. Record of a test round
 
 | Date | Tester | Version or commit | Automated tests | Manual scenarios passed | Notes |
 |---|---|---|---|---|---|
-| | | | | / 26 | |
+| | | | | / 31 | |

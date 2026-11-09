@@ -35,7 +35,7 @@ def summary_sections(complaint):
                 ("Reference", c.reference),
                 ("Status", c.status_label),
                 ("Factory", str(c.factory or "")),
-                ("Lodged by", f"{c.lodged_by}, {c.lodger_department}".rstrip(", ")),
+                ("Lodged by", f"{c.lodger_display}, {c.lodger_department}".rstrip(", ")),
                 ("Lodged on", _datetime(c.created_at)),
                 ("Submitted on", _datetime(c.submitted_at)),
             ],

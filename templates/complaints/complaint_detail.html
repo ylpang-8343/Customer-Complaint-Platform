@@ -13,11 +13,12 @@
         {% if complaint.complaint_type %}<span class="tag">{{ complaint.complaint_type }}</span>{% endif %}
         {% if complaint.hod_decision and not complaint.is_deleted %}<span class="tag">HOD: {{ complaint.get_hod_decision_display }}</span>{% endif %}
       </div>
-      <p class="head-sub">Raised by {{ complaint.lodged_by }}{% if complaint.lodger_department or complaint.lodger_factory %} ({{ complaint.lodger_department }}{% if complaint.lodger_department and complaint.lodger_factory %} · {% endif %}{{ complaint.lodger_factory|default:"" }}){% endif %} on {{ complaint.created_at|date:"j M Y, H:i" }}</p>
+      <p class="head-sub">Raised by {{ complaint.lodger_display }}{% if complaint.lodger_department or complaint.lodger_factory %} ({{ complaint.lodger_department }}{% if complaint.lodger_department and complaint.lodger_factory %} · {% endif %}{{ complaint.lodger_factory|default:"" }}){% endif %} on {{ complaint.created_at|date:"j M Y, H:i" }}</p>
     </div>
     <span class="head-actions">
       <a class="button" href="{% url 'home' %}">Back to list</a>
-      {% if not complaint.is_draft %}<a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF summary</a>{% endif %}
+      <a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF report</a>
+      {% if not complaint.is_draft %}<a class="button" href="{% url 'complaint_audit_pack' complaint.pk %}" title="The PDF report and every document, as one zip">Audit pack</a>{% endif %}
       {% if can_edit %}<a class="button primary" href="{% url 'complaint_edit' complaint.pk %}">Continue editing</a>{% endif %}
     </span>
   </div>
@@ -36,6 +37,11 @@
 
 {% if complaint.is_deleted %}
 <div class="alert error" role="alert"><strong>Deleted</strong> by {{ complaint.deleted_by }} on {{ complaint.deleted_at|date:"j M Y, H:i" }}. Reason: {{ complaint.deleted_reason }}</div>
+{% endif %}
+
+{% if complaint.is_imported %}
+<div class="alert note">Imported from the previous log{% if complaint.import_batch %} on {{ complaint.import_batch.imported_at|date:"j M Y" }}{% endif %}.
+  {% if complaint.legacy_reference %}Number in the old log: <strong>{{ complaint.legacy_reference }}</strong>. {% endif %}A field the old log did not have is blank.</div>
 {% endif %}
 
 {% if actions %}
@@ -144,7 +150,7 @@
 {% if reply %}
 <section class="card">
   <h2 class="section-title"><span class="badge">R</span> Reply sent to the customer</h2>
-  <p class="muted">{{ reply.sent_at|date:"j M Y, H:i" }} · {{ reply.sent_by }} · to {{ reply.to_email }}</p>
+  <p class="muted">{{ reply.sent_at|date:"j M Y, H:i" }}{% if not complaint.is_imported %} · {{ reply.sent_by }}{% endif %} · to {{ reply.to_email|default:"the customer" }}</p>
   <p><strong>{{ reply.subject }}</strong></p>
   <p>{{ reply.body|linebreaksbr }}</p>
   {% include "complaints/_files.html" with files=files.reply %}
@@ -159,7 +165,7 @@
     <div><dt>Result</dt><dd>{{ verification.first_result|linebreaksbr|default:"—" }}</dd></div>
     <div><dt>Second verified date</dt><dd>{{ verification.second_verified_date|date:"j M Y"|default:"—" }}</dd></div>
     <div><dt>Result</dt><dd>{{ verification.second_result|linebreaksbr|default:"—" }}</dd></div>
-    <div><dt>Date case closed</dt><dd>{% if verification.closed_at %}{{ verification.closed_at|date:"j M Y" }} by {{ verification.closed_by }}{% else %}—{% endif %}</dd></div>
+    <div><dt>Date case closed</dt><dd>{% if verification.closed_at %}{{ verification.closed_at|date:"j M Y" }}{% if not complaint.is_imported %} by {{ verification.closed_by }}{% endif %}{% else %}—{% endif %}</dd></div>
     <div><dt>Closing comment</dt><dd>{{ verification.closing_comment|linebreaksbr|default:"—" }}</dd></div>
   </dl>
 </section>

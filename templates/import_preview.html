@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Import {{ batch.original_name }}{% endblock %}
+{% block page_title %}Import — {{ batch.original_name }}{% endblock %}
+{% block scope %}{{ batch.get_status_display }}. Uploaded {{ batch.uploaded_at|date:"j M Y, H:i" }} by {{ batch.uploaded_by }}.{% endblock %}
+{% block content %}
+
+{% if batch.status == "preview" %}
+<div class="kpis">
+  <div class="kpi"><b>{{ analysis.rows|length }}</b><span>Rows with a complaint</span></div>
+  <div class="kpi ok"><b>{{ ok_rows }}</b><span>Rows that are correct</span></div>
+  <div class="kpi bad"><b>{{ analysis.rows_with_errors }}</b><span>Rows with errors</span></div>
+  <div class="kpi warn"><b>{{ warning_count }}</b><span>Warnings (do not stop the import)</span></div>
+</div>
+
+{% for message in analysis.file_errors %}<div class="alert error" role="alert">{{ message }}</div>{% endfor %}
+{% for message in analysis.file_warnings %}<div class="alert note">{{ message }}</div>{% endfor %}
+
+{% if problems %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">!</span> Fix these in the spreadsheet</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th class="num">Row</th><th>Column</th><th>Problem</th></tr></thead>
+      <tbody>{% for row, column, message in problems %}<tr><td class="num">{{ row }}</td><td>{{ column }}</td><td>{{ message }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% if more_problems %}<p class="footnote">{{ more_problems }} more problems are not shown. Fix these and upload again.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if preview %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">i</span> What would be imported</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th class="num">Row</th><th>Factory</th><th>Old no.</th><th>Complaint from</th><th>Issue date</th><th>Type</th><th>Stage it gets</th><th>Warnings</th></tr></thead>
+      <tbody>
+        {% for r in preview %}
+        <tr{% if r.errors %} class="is-deleted"{% endif %}>
+          <td class="num">{{ r.row }}</td>
+          <td>{{ r.values.factory.code|default:"—" }}</td>
+          <td>{{ r.values.legacy_reference|default:"—" }}</td>
+          <td>{{ r.values.buyer|default:"—" }}</td>
+          <td>{{ r.values.issue_at|date:"j M Y"|default:"—" }}</td>
+          <td>{{ r.values.complaint_sub_type|default:r.values.complaint_type|default:"—" }}</td>
+          <td>{% if r.errors %}<span class="muted">not imported</span>{% else %}{{ r.stage_label }}{% endif %}</td>
+          <td class="muted">{% for w in r.warnings %}{{ w }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if more_rows %}<p class="footnote">The first {{ preview|length }} rows are shown; {{ more_rows }} more follow.</p>{% endif %}
+</section>
+{% endif %}
+
+<form method="post" class="form-actions">
+  {% csrf_token %}
+  {% if analysis.can_import %}
+    <p>{{ analysis.rows|length }} complaint{{ analysis.rows|length|pluralize }} will be created, all together, with new references in date order. No emails are sent. This cannot be undone from here: a wrong complaint can be deleted with a reason.</p>
+    <button type="submit" name="confirm" class="button primary">Import {{ analysis.rows|length }} complaint{{ analysis.rows|length|pluralize }}</button>
+  {% else %}
+    <p>Nothing can be imported until every row is correct. Fix the spreadsheet and upload it again.</p>
+    <a class="button primary" href="{% url 'import_home' %}">Upload a corrected file</a>
+  {% endif %}
+  <button type="submit" name="discard" class="button">Discard this file</button>
+</form>
+
+{% elif batch.status == "imported" %}
+<div class="kpis">
+  <div class="kpi ok"><b>{{ batch.imported_count }}</b><span>Complaints imported</span></div>
+  <div class="kpi"><b>{{ batch.rows_total }}</b><span>Rows in the file</span></div>
+</div>
+<section class="card">
+  <h2 class="section-title"><span class="badge">✓</span> Imported {{ batch.imported_at|date:"j M Y, H:i" }}</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>Reference</th><th>Old no.</th><th>Factory</th><th>Complaint from</th><th>Type</th><th>Issued</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for c in imported %}
+        <tr>
+          <td><a href="{% url 'complaint_detail' c.pk %}">{{ c.reference }}</a></td>
+          <td>{{ c.legacy_reference|default:"—" }}</td><td>{{ c.factory }}</td><td>{{ c.buyer }}</td>
+          <td>{{ c.complaint_sub_type|default:c.complaint_type|default:"" }}</td>
+          <td>{{ c.created_at|date:"j M Y" }}</td>
+          <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="footnote">They are in My complaints, the Dashboard and the Complaint log like any other complaint. Open complaints are waiting for the Coordinator to assign PICs.</p>
+  <p><a class="button" href="{% url 'complaint_log' %}">Open the complaint log</a> <a class="button" href="{% url 'import_home' %}">Back to Import</a></p>
+</section>
+
+{% else %}
+<section class="card">
+  <p>This file was discarded. Nothing from it was imported.</p>
+  <p><a class="button primary" href="{% url 'import_home' %}">Back to Import</a></p>
+</section>
+{% endif %}
+{% endblock %}

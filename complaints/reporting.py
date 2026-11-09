@@ -205,7 +205,7 @@ def _attr(name, record):
 LOG_COLUMNS = [
     ("Customer complaint no.", "text", 18, lambda c: c.reference),
     ("Complaint from", "text", 28, lambda c: c.buyer),
-    ("Complaint received by", "text", 24, lambda c: str(c.lodged_by)),
+    ("Complaint received by", "text", 24, lambda c: c.lodger_display),
     ("Issue date", "datetime", 18, lambda c: _local(c.created_at)),
     ("Product", "text", 24, lambda c: c.product_name),
     ("Delivery date", "date", 14, lambda c: c.delivery_date),

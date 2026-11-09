@@ -82,6 +82,11 @@ button.link.danger { color: var(--bad); margin-left: .5rem; }
 .messages li.info { border-left-color: var(--info); }
 .alert.error { border: 1px solid var(--bad); border-radius: 6px; padding: .6rem .9rem; margin: 0 0 1rem; color: var(--bad); font-size: .9rem; }
 .errorlist { list-style: none; margin: 0; padding: 0; }
+.alert.note { border: 1px solid var(--info); border-radius: 6px; padding: .6rem .9rem; margin: 0 0 1rem; background: var(--scope-bg); color: var(--text); font-size: .88rem; }
+ul.plain { margin: .4rem 0 .8rem; padding-left: 1.2rem; font-size: .9rem; }
+ul.plain li { margin-bottom: .25rem; }
+details.howto-columns { margin-top: .5rem; }
+details.howto-columns summary { cursor: pointer; font-weight: 600; color: var(--accent); margin-bottom: .6rem; }
 
 /* Stat tiles */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
@@ -196,7 +201,7 @@ table.summary td { padding: .5rem .3rem; }
 table.log th { position: sticky; top: 0; z-index: 1; }
 table.log td { vertical-align: top; min-width: 7rem; font-size: .8rem; }
 table.log td:nth-child(2) { white-space: nowrap; }
-table.log tr.is-deleted td { color: var(--muted); }
+table.list tr.is-deleted td { color: var(--muted); }
 
 /* Bar charts: one hue, thin bars rounded at the data end, the value at the tip */
 .bars { list-style: none; margin: 0; padding: 0; --bar: var(--accent); }

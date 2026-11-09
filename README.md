@@ -70,6 +70,18 @@ CAR number left out because the complaint reference replaces it. **Export to Exc
 file, followed by the summary and a line saying who exported what. Both follow the user's role and factory, so nobody exports
 more than they can see. Drafts are never counted.
 
+## PDF report, audit pack and import of past complaints
+
+**PDF report.** Every complaint has a **PDF report** button: the whole record in one document for filing and for FSSC and ISO
+audits, with page numbers and who printed it. **Audit pack** is a zip with that PDF, the SCARs as sent, the reply and every
+attached file in a folder for each section. The proposal asks for the layout of the current Customer Complaint Report; that
+report was not supplied, so the sections follow what the proposal says it holds (see `complaints/report_pdf.py` to change them).
+
+**Import** (menu, Coordinator only) loads the past 6 months from one spreadsheet. Download the template, fill in one row for
+each complaint, upload it, read the check, then confirm. Nothing is saved until every row is correct, and then all rows are
+saved together. Each complaint gets a reference in date order; the old number is kept; the stage comes from the dates.
+No emails are sent.
+
 ## Screenshots
 
 Taken from the running app with the demo data (`docs/img/`, made by `tools/screenshots/`; see the [Test Guide](docs/TestGuide.md#7-the-screenshots)):
@@ -86,6 +98,7 @@ Taken from the running app with the demo data (`docs/img/`, made by `tools/scree
 
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
 | Dashboard, the complaint log and its Excel file, with the filter row and the phone view | `50` to `56` |
+| PDF report, audit pack and the import of past complaints: the Import page, a file with mistakes, the corrected file, the result, an imported complaint, three pages of the PDF report, the phone view | `57` to `66` |
 | Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
 The settings and audit-log pages (`06` to `14`) are Django's standard admin site and are not
@@ -98,7 +111,7 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 181 automated tests should pass. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 227 automated tests should pass. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 

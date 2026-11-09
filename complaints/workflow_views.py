@@ -7,7 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from . import texts, workflow
 from .models import Attachment, Complaint, Scar
-from .pdf import complaint_summary_pdf, scar_pdf
+from .pdf import scar_pdf
+from .report_pdf import audit_pack, complaint_report_pdf
 from .views import _visible_complaint_or_404
 from .workflow import WorkflowError
 from .workflow_forms import (
@@ -367,8 +368,20 @@ def complaint_verify(request, pk):
 @login_required
 def complaint_pdf(request, pk):
     complaint = _visible_complaint_or_404(request, pk)
-    response = HttpResponse(complaint_summary_pdf(complaint), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{complaint.reference.replace("/", "-")}.pdf"'
+    response = HttpResponse(complaint_report_pdf(complaint, request.user), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{complaint.reference.replace("/", "-") or "draft"}.pdf"'
+    return response
+
+
+@login_required
+def complaint_audit_pack(request, pk):
+    """The PDF report with every document of the complaint in one zip, for FSSC and ISO audits."""
+    complaint = _visible_complaint_or_404(request, pk)
+    if complaint.is_draft:
+        messages.info(request, "A draft has no audit pack yet. It is made once the complaint is submitted.")
+        return redirect("complaint_detail", pk=complaint.pk)
+    response = HttpResponse(audit_pack(complaint, request.user), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{complaint.reference.replace("/", "-")}-audit-pack.zip"'
     return response
 
 

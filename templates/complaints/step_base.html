@@ -12,7 +12,7 @@
   <span class="status status-{{ complaint.status_key }}">{{ complaint.status_label }}</span>
   <span style="margin-left:auto">
     <a class="button" href="{% url 'complaint_detail' complaint.pk %}">Full complaint</a>
-    <a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF summary</a>
+    <a class="button" href="{% url 'complaint_pdf' complaint.pk %}">PDF report</a>
   </span>
 </div>
 
