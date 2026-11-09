@@ -1,0 +1,10 @@
+{# Ranked bars: one colour, the value at the tip. Every figure is also written as text, so the chart is its own table. #}
+<ul class="bars{% if ordinal %} ordinal{% endif %}">
+  {% for row in rows %}
+  <li title="{{ row.label }}: {{ row.count }}">
+    <span class="bar-label">{{ row.label }}</span>
+    <span class="bar-track">{% if row.count %}<span class="bar{% if ordinal %} step-{{ forloop.counter }}{% endif %}" style="width: {{ row.percent }}%"></span>{% endif %}</span>
+    <span class="bar-value">{{ row.count }}</span>
+  </li>
+  {% endfor %}
+</ul>

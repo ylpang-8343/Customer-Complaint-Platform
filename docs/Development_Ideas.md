@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow) and 4 (reminders and notification log) of Section 7 are done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow), 4 (reminders and notification log) and 5 (dashboard and complaint log) of Section 7 are done; see the README for how to run it.
 
 ## 1. Approach
 
@@ -109,7 +109,7 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 2. **Lodging (done):** complaint form, conditional fields, draft/submit validation, reference numbers.
 3. **Workflow (done):** assignment, PIC investigation, lab section, SCAR, HOD review, FM approval, customer reply, closing, with the emails for each step.
 4. **Reminders and notification log (done).**
-5. **Dashboard and complaint log** with Excel export.
+5. **Dashboard and complaint log (done)** with Excel export.
 6. **PDF export** in the layout of the current report, and the 6-month historical import from a spreadsheet template.
 7. **Tests and demo data** (see Section 9).
 
@@ -138,6 +138,10 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 | Step 4: what "not done within 3 days" means. | Calendar days at the current stage, counted from the moment the complaint reached it. The first reminder goes at the number of days set for the complaint type (default 3), then again every that-many days until the stage changes. Weekends and public holidays are not skipped. |
 | Step 4: who is reminded. | The person responsible for the stage: the Coordinator (assignment, effectiveness check), the PIC (investigation, pending SCAR, reply due), the HOD or the FM, or their deputy while they are away. If nobody is set up for the stage, the reminder goes to the Coordinator and says so. Nobody is copied. |
 | Step 4: the notification log. | Every email is logged with recipients, text, attachments and result, including failures and emails with no address to go to. It is visible to the Coordinator and top management only. |
+| Step 5: how a complaint is classed as Valid, Invalid, Under investigation or Deleted. | Deleted comes first (a deleted complaint is never also counted as valid or invalid). Otherwise the HOD's decision decides; with no decision yet it is Under investigation. The four add up to the total. Drafts are not counted. A valid complaint is In progress until it is Closed. |
+| Step 5: the "Remarks" column of the log. | The proposal lists Remarks without saying whose. It is filled from the Coordinator's closing comment. IMS remarks (the Coordinator's remarks when assigning) have their own column. |
+| Step 5: what "complaint date" means for the period filter, and who may export. | The date the complaint was lodged. Every role gets the dashboard, the log and the export for the complaints it may already see, so a factory PIC exports only their factory, and a lodger only their own. |
+| Step 5: open complaint aging. | Calendar days since the complaint was submitted, in bands of 0-3, 4-7, 8-14, 15-30 and over 30 days. |
 | PDF summary. | A simple summary PDF is built now (ReportLab) for the assignment email. Step 6 replaces it with the layout of the current report. |
 
 ## 9. Quality and risks

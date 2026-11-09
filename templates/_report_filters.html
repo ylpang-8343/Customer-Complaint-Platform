@@ -1,0 +1,10 @@
+<form method="get" class="filters report-filters">
+  {% if form.factories.field.queryset.exists %}
+  <div class="chips"><label class="group">Factories</label>{{ form.factories }}</div>
+  {% endif %}
+  <div><label for="{{ form.date_from.id_for_label }}">Lodged from</label>{{ form.date_from }}</div>
+  <div><label for="{{ form.date_to.id_for_label }}">Lodged to</label>{{ form.date_to }}</div>
+  <button class="button primary" type="submit">Apply</button>
+  <a class="button" href="{{ reset_url }}">Reset</a>
+</form>
+{% if form.errors %}<div class="alert error" role="alert">{% for field, errors in form.errors.items %}{% for e in errors %}<div>{{ e }}</div>{% endfor %}{% endfor %}</div>{% endif %}

@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from complaints import views as complaint_views
+from complaints import report_views as reports
 from complaints import workflow_views as steps
 
 admin.site.site_header = "BEST Group Complaint Platform administration"
@@ -12,6 +13,9 @@ urlpatterns = [
     path("", complaint_views.home, name="home"),
     path("help/", complaint_views.help_page, name="help"),
     path("notifications/", complaint_views.notification_log, name="notifications"),
+    path("dashboard/", reports.dashboard, name="dashboard"),
+    path("log/", reports.complaint_log, name="complaint_log"),
+    path("log/export/", reports.log_export, name="log_export"),
     path("complaints/new/", complaint_views.complaint_form, name="complaint_new"),
     path("complaints/<int:pk>/", complaint_views.complaint_detail, name="complaint_detail"),
     path("complaints/<int:pk>/edit/", complaint_views.complaint_form, name="complaint_edit"),

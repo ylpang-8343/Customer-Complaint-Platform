@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard — Customer Complaints{% endblock %}
+{% block scope %}Showing: {{ scope_text }}. You see only the complaints your role and factory allow.{% endblock %}
+{% block content %}
+<section class="card">
+  {% url 'dashboard' as reset_url %}
+  {% include "_report_filters.html" %}
+</section>
+
+<div class="kpis">
+  {% for label, value, key in summary %}
+  <div class="kpi{% if key == 'invalid' or key == 'deleted' %} muted-kpi{% elif key == 'valid' or key == 'valid_in_progress' %} warn{% elif key == 'valid_closed' %} ok{% elif key == 'under_investigation' %} info{% endif %}">
+    <b>{{ value }}</b><span>{{ label }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="dash-grid">
+  <section class="card">
+    <h2 class="section-title">Complaints by type</h2>
+    {% include "_bars.html" with rows=by_type %}
+    <p class="footnote">Every submitted complaint in the period, including deleted ones.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Where the complaints are</h2>
+    {% include "_bars.html" with rows=stages %}
+    <p class="footnote">Stage of each complaint that is not deleted. Pending SCAR from Supplier and Customer Response Sent are stages.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Valid complaints by type <span class="total-chip">Total {{ valid_total }}</span></h2>
+    {% include "_bars.html" with rows=valid_by_type %}
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Open complaint aging <span class="total-chip">{{ open_total }} open</span></h2>
+    {% include "_bars.html" with rows=aging_bands ordinal=True %}
+    <p class="footnote">Days since the complaint was submitted, for complaints that are not closed or deleted.</p>
+  </section>
+</div>
+
+<section class="card">
+  <h2 class="section-title">Where each open complaint is waiting</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>Complaint</th><th>Factory</th><th>Type</th><th>Step</th><th>Waiting for</th><th class="num">Days open</th><th class="num">At this step</th></tr></thead>
+      <tbody>
+        {% for row in open_rows %}
+        <tr>
+          <td><a href="{% url 'complaint_detail' row.complaint.pk %}">{{ row.complaint.reference }}</a></td>
+          <td>{{ row.complaint.factory }}</td>
+          <td>{{ row.complaint.complaint_sub_type|default:row.complaint.complaint_type|default:"" }}</td>
+          <td><span class="status status-{{ row.complaint.status }}">{{ row.complaint.status_label }}</span></td>
+          <td>{{ row.role }}{% if row.people %}<br><span class="muted">{{ row.people }}</span>{% endif %}</td>
+          <td class="num">{{ row.days_open }}</td>
+          <td class="num">{{ row.days_at_stage }}{% if row.overdue %} <span class="tag overdue">overdue</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td class="empty" colspan="7">No open complaints.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if open_more %}<p class="footnote">The oldest {{ open_rows|length }} are shown; {{ open_more }} more are in the complaint log.</p>{% endif %}
+</section>
+
+{% if reasons %}
+<section class="card">
+  <h2 class="section-title">Invalid and deleted complaints, with the reason</h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>Complaint</th><th>Result</th><th>Buyer</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for kind, complaint, reason in reasons %}
+        <tr>
+          <td><a href="{% url 'complaint_detail' complaint.pk %}">{{ complaint.reference }}</a></td>
+          <td>{{ kind }}</td><td>{{ complaint.buyer }}</td><td>{{ reason|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2 class="section-title">List of complaints
+    <span class="actions-right">
+      <a class="button" href="{% url 'log_export' %}{% if querystring %}?{{ querystring }}{% endif %}">Export to Excel</a>
+      <a class="button primary" href="{% url 'complaint_log' %}{% if querystring %}?{{ querystring }}{% endif %}">Open the complaint log</a>
+    </span>
+  </h2>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Type</th><th>Lodged</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for c in recent %}
+        <tr>
+          <td><a href="{% url 'complaint_detail' c.pk %}">{{ c.reference }}</a></td>
+          <td>{{ c.factory }}</td><td>{{ c.buyer }}</td>
+          <td>{{ c.complaint_sub_type|default:c.complaint_type|default:"" }}</td>
+          <td>{{ c.created_at|date:"j M Y" }}</td>
+          <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span>{% if c.hod_decision and not c.is_deleted %} <span class="tag">{{ c.get_hod_decision_display }}</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td class="empty" colspan="6">No complaints in this view.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="footnote">The latest {{ recent|length }}. The complaint log has every complaint, in the columns of the current log.</p>
+</section>
+{% endblock %}

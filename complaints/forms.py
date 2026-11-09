@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 
+from accounts.access import factories_for
 from accounts.models import Factory
 
 from . import rules
@@ -97,6 +98,32 @@ class ComplaintFilterForm(forms.Form):
                 | Q(contact_person__icontains=text)
             )
         return queryset
+
+
+class ReportFilterForm(forms.Form):
+    """The one filter row above the dashboard and the complaint log: factories and the lodged period."""
+
+    factories = forms.ModelMultipleChoiceField(
+        queryset=Factory.objects.none(), required=False, widget=forms.CheckboxSelectMultiple, label="Factories"
+    )
+    date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["factories"].queryset = factories_for(user)
+
+    def scope(self):
+        """(factories, date from, date to). A bad date is ignored; the form shows the error."""
+        data = getattr(self, "cleaned_data", {}) if self.is_bound else {}
+        return list(data.get("factories") or []), data.get("date_from"), data.get("date_to")
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get("date_from"), cleaned.get("date_to")
+        if start and end and end < start:
+            self.add_error("date_to", "The end date is before the start date.")
+        return cleaned
 
 
 class NotificationFilterForm(forms.Form):

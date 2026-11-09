@@ -2,6 +2,7 @@
 
 Group customer complaint platform for BEST Group's five factories, built with Django from
 `docs/FINAL_Customer_Complaint_Platform_Proposal.pdf`. The plan is in `docs/Development_Ideas.md`.
+How to test it, by script and by hand, is in **[docs/TestGuide.md](docs/TestGuide.md)**.
 
 ## Run it locally
 
@@ -57,9 +58,21 @@ A reminder that cannot be emailed is tried again the next time the job runs.
 Every email the platform sends, or fails to send, is written to the notification log. The Coordinator and top
 management open it from the menu (Notifications), and each complaint shows its own emails to them.
 
+## Dashboard and complaint log
+
+**Dashboard** (menu: Dashboard) shows the figures of the complaints a user may see, with one filter row for factories and the
+lodged period: the summary tiles, complaints by type, where the complaints are in the process, valid complaints by type,
+open complaint aging, where each open complaint is waiting and who for, the reasons for invalid and deleted complaints, and the
+latest complaints.
+
+**Complaint log** (menu: Complaint log) lists every complaint in the columns of the current log, in the same order, with the
+CAR number left out because the complaint reference replaces it. **Export to Excel** downloads the same table as an `.xlsx`
+file, followed by the summary and a line saying who exported what. Both follow the user's role and factory, so nobody exports
+more than they can see. Drafts are never counted.
+
 ## Screenshots
 
-Taken from the running app with the demo data (`docs/img/`):
+Taken from the running app with the demo data (`docs/img/`, made by `tools/screenshots/`; see the [Test Guide](docs/TestGuide.md#7-the-screenshots)):
 
 | | |
 |---|---|
@@ -72,17 +85,22 @@ Taken from the running app with the demo data (`docs/img/`):
 | Help page, a filtered list, and the phone-width list and form | `21-help.png`, `22-home-filtered.png`, `23-mobile-list.png`, `24-mobile-form.png` |
 
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
+| Dashboard, the complaint log and its Excel file, with the filter row and the phone view | `50` to `56` |
 | Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
 The settings and audit-log pages (`06` to `14`) are Django's standard admin site and are not
 restyled. Everything else uses the shared layout in `templates/base.html` and
 `static/css/app.css`; the colours are variables at the top of that file.
 
-## Tests
+## Testing
 
 ```powershell
 .venv\Scripts\python -m pytest
 ```
+
+All 181 automated tests should pass. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
+`docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 
 ## Settings by environment variable
 

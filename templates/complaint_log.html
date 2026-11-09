@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Complaint log{% endblock %}
+{% block page_title %}Complaint Log — Customer Complaints{% endblock %}
+{% block scope %}Showing: {{ scope_text }}. Built from the complaint records, in the columns of the current log.{% endblock %}
+{% block content %}
+<section class="card">
+  {% url 'complaint_log' as reset_url %}
+  {% include "_report_filters.html" %}
+</section>
+
+<section class="card">
+  <h2 class="section-title">Complaint log <span class="total-chip">{{ page.paginator.count }} complaint{{ page.paginator.count|pluralize }}</span>
+    <a class="button primary actions-right" href="{% url 'log_export' %}{% if querystring %}?{{ querystring }}{% endif %}">Export to Excel</a>
+  </h2>
+  <div class="table-wrap log-wrap">
+    <table class="list log">
+      <thead>
+        <tr><th class="num">No.</th>{% for header, kind in columns %}<th>{{ header }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr{% if row.complaint.is_deleted %} class="is-deleted"{% endif %}>
+          <td class="num">{{ row.number }}</td>
+          {% for value in row.values %}
+          <td>{% if forloop.first %}<a href="{% url 'complaint_detail' row.complaint.pk %}">{{ value }}</a>{% elif value %}{{ value }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% empty %}
+        <tr><td class="empty" colspan="{{ columns|length|add:1 }}">No complaints in this view.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page.has_other_pages %}
+  <p class="pager">
+    {% if page.has_previous %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    Page {{ page.number }} of {{ page.paginator.num_pages }}
+    {% if page.has_next %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
+  </p>
+  {% endif %}
+  <p class="footnote">The CAR number is not used: the complaint reference takes its place, including on the SCAR. The Excel file has the same columns in the same order, and the summary under the table.</p>
+</section>
+
+<div class="dash-grid">
+  <section class="card">
+    <h2 class="section-title">Summary</h2>
+    <table class="list summary">
+      <tbody>
+        {% for label, value in summary %}<tr><td>{{ label }}</td><td class="num"><strong>{{ value }}</strong></td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <p class="footnote">Counts cover every complaint in the period, not only this page.</p>
+  </section>
+  <section class="card">
+    <h2 class="section-title">Cases for each type of valid complaint</h2>
+    <table class="list summary">
+      <tbody>
+        {% for name, count in valid_by_type %}<tr><td>{{ name }}</td><td class="num"><strong>{{ count }}</strong></td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

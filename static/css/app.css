@@ -8,6 +8,8 @@
   --scope-bg: #fbf1de; --scope-text: #8a5a1a;
   --ok: #2f7d4f; --bad: #b3261e; --warn: #c98a12; --info: #2d6aa3;
   --link: #14509a;
+  --line-strong: #cbbfa8;
+  --age-1: #d99f5a; --age-2: #c98430; --age-3: #b46c16; --age-4: #955407; --age-5: #6f3c04;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -17,6 +19,8 @@
     --band: #2d2a2c; --auto-bg: #28303d; --auto-text: #9fb0c7;
     --scope-bg: #2e2515; --scope-text: #e0b36d;
     --ok: #55b17c; --bad: #e0675d; --warn: #e0a93a; --info: #6fa8dc; --link: #8fb8f0;
+    --line-strong: #5a4c36;
+    --age-1: #7c4f1c; --age-2: #a06a22; --age-3: #c2842c; --age-4: #e0a24a; --age-5: #f6c677;
   }
 }
 
@@ -171,6 +175,42 @@ details.mail pre { white-space: pre-wrap; font: inherit; font-size: .8rem; backg
 .stepper .step-note { color: var(--muted); font-size: .72rem; min-height: 1em; }
 .stepper li.current .step-note { color: var(--accent); font-weight: 600; }
 .head.is-deleted .stepper { opacity: .45; }
+
+/* Dashboard and complaint log */
+.report-filters .chips { display: flex; align-items: center; gap: .3rem 1rem; flex-wrap: wrap; }
+.report-filters .chips label.group { margin: 0 .3rem 0 0; }
+.report-filters .chips div[id^=id_] { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+.report-filters .chips div[id^=id_] label { display: flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--text); margin: 0; }
+.report-filters .chips input { width: auto; padding: 0; accent-color: var(--accent); }
+.dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.dash-grid > .card { margin-bottom: 0; }
+.dash-grid + .card, .card + .dash-grid, .kpis + .dash-grid { margin-top: 1rem; }
+@media (max-width: 56rem) { .dash-grid { grid-template-columns: 1fr; } .dash-grid > .card { margin-bottom: 1rem; } }
+.kpi.warn b { color: var(--accent); }
+.kpi.muted-kpi b { color: var(--muted); }
+.total-chip { margin-left: auto; font-size: .72rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.section-title .actions-right { display: flex; gap: .5rem; text-transform: none; letter-spacing: 0; }
+table.list th.num, table.list td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.summary td { padding: .5rem .3rem; }
+.log-wrap { max-height: 70vh; overflow: auto; }
+table.log th { position: sticky; top: 0; z-index: 1; }
+table.log td { vertical-align: top; min-width: 7rem; font-size: .8rem; }
+table.log td:nth-child(2) { white-space: nowrap; }
+table.log tr.is-deleted td { color: var(--muted); }
+
+/* Bar charts: one hue, thin bars rounded at the data end, the value at the tip */
+.bars { list-style: none; margin: 0; padding: 0; --bar: var(--accent); }
+.bars li { display: grid; grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) 2.5rem; align-items: center; gap: .7rem; padding: .32rem 0; font-size: .85rem; }
+.bar-label { color: var(--text); overflow-wrap: anywhere; }
+.bar-track { display: block; height: .9rem; border-left: 1px solid var(--line-strong); }
+.bar { display: block; height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 3px; }
+.bar-value { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; text-align: right; }
+.bars li:hover .bar { filter: brightness(1.08); }
+.bars.ordinal .step-1 { background: var(--age-1); }
+.bars.ordinal .step-2 { background: var(--age-2); }
+.bars.ordinal .step-3 { background: var(--age-3); }
+.bars.ordinal .step-4 { background: var(--age-4); }
+.bars.ordinal .step-5 { background: var(--age-5); }
 
 /* Handling a complaint */
 .filters .check { align-self: center; }

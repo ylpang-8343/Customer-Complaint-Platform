@@ -8,7 +8,7 @@ GUIDES = [
     ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case. Sets the reminder days and reads the notifications.", "Management Representative"),
     ("pic", "PICs and laboratory", "Investigate a complaint, fill in the laboratory section, issue a SCAR if the cause is external, and reply to the customer.", "PIC · Lab staff"),
     ("approver", "HOD and Factory Manager", "The HOD decides whether a complaint is valid; the FM approves or rejects the response.", "HOD · FM"),
-    ("management", "Top management", "See the complaints of every factory, and where each one is waiting.", "Group management"),
+    ("management", "Top management", "See the complaints of every factory, the dashboard and the complaint log, and where each complaint is waiting.", "Group management"),
 ]
 
 GUIDE_FOR_ROLE = {
@@ -133,6 +133,21 @@ TASKS = [
         [
             "After the reply is sent, choose Effectiveness check and closing. Record the first verified date and its result, and the second if there is one, then Close the case.",
             "If the corrective action did not work, choose Not effective: return to PIC and say why. The case goes back to the PIC.",
+        ],
+    ),
+    (
+        "What does the Dashboard show?",
+        [
+            "The Dashboard counts the complaints you are allowed to see: the total, how many are valid, invalid, under investigation and deleted, and how many valid complaints are in progress or closed. A valid complaint is In progress until the Coordinator closes the case.",
+            "Below the figures: complaints by type, where the complaints are in the process (Pending SCAR from Supplier and Customer Response Sent are stages), valid complaints by type, and how long the open complaints have been open. A table lists where each open complaint is waiting and who it is waiting for, and another gives the reason for every invalid or deleted complaint.",
+            "Choose factories and a lodged-from and lodged-to date above, then Apply. Everything on the page follows the same filter. Top management and the Coordinator can choose any factory; factory staff see their own.",
+        ],
+    ),
+    (
+        "How do I get the complaint log in Excel?",
+        [
+            "Open Complaint log in the menu. It lists every complaint in the columns of the current log, oldest first, with the summary under the table. Choose the factories and dates, then Export to Excel.",
+            "The file has the same columns in the same order, and the summary under the table. The CAR number is not used: the complaint reference takes its place. Only complaints you are allowed to see are included.",
         ],
     ),
     (
