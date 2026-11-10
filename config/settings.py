@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "anymail",
     "accounts",
     "audit",
     "complaints",
@@ -150,17 +151,44 @@ SITE_URL = (os.environ.get("SITE_URL") or os.environ.get("RENDER_EXTERNAL_URL") 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# Email: printed to the console in development, SMTP (or Mailpit) otherwise.
-if os.environ.get("EMAIL_HOST"):
+# Email. In order of preference:
+#   1. EMAIL_BACKEND set explicitly;
+#   2. an email service reached over HTTPS, chosen by which key is set (Brevo, Resend, SendGrid, Mailgun, Postmark).
+#      Use one of these on a host that blocks SMTP, such as Render's free plan;
+#   3. SMTP, when EMAIL_HOST is set;
+#   4. otherwise emails are only written to the server log: nothing is delivered (development, or a demo).
+# DEFAULT_FROM_EMAIL must be an address the service has verified, or it refuses the message.
+_ANYMAIL_SERVICES = [
+    ("BREVO_API_KEY", "anymail.backends.brevo.EmailBackend"),
+    ("RESEND_API_KEY", "anymail.backends.resend.EmailBackend"),
+    ("SENDGRID_API_KEY", "anymail.backends.sendgrid.EmailBackend"),
+    ("MAILGUN_API_KEY", "anymail.backends.mailgun.EmailBackend"),
+    ("POSTMARK_SERVER_TOKEN", "anymail.backends.postmark.EmailBackend"),
+]
+ANYMAIL = {
+    name: os.environ[name]
+    for name in ("BREVO_API_KEY", "RESEND_API_KEY", "SENDGRID_API_KEY", "MAILGUN_API_KEY", "MAILGUN_SENDER_DOMAIN", "POSTMARK_SERVER_TOKEN")
+    if os.environ.get(name)
+}
+_service_backend = next((backend for key, backend in _ANYMAIL_SERVICES if os.environ.get(key)), None)
+
+if os.environ.get("EMAIL_BACKEND"):
+    EMAIL_BACKEND = os.environ["EMAIL_BACKEND"]
+elif _service_backend:
+    EMAIL_BACKEND = _service_backend
+elif os.environ.get("EMAIL_HOST"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.environ["EMAIL_HOST"]
-    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
-    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Used when the SMTP backend is chosen.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "complaints@example.com")
+# Written in the signature of the reply to the customer.
+COMPANY_NAME = os.environ.get("COMPANY_NAME", "BEST Group")
 
 
 # Behind a proxy that ends HTTPS (Render, a load balancer, Nginx) the app is told the original scheme.

@@ -16,7 +16,9 @@
   <section class="card">
     <h2 class="section-title"><span class="badge">A</span> Investigation findings</h2>
     <div class="grid">
+      {% include "complaints/_field.html" with field=form.investigation_summary span=True %}
       {% include "complaints/_field.html" with field=form.root_cause span=True %}
+      {% include "complaints/_field.html" with field=form.conclusion span=True %}
       {% include "complaints/_field.html" with field=form.correction span=True %}
       {% include "complaints/_field.html" with field=form.corrective_action span=True %}
       {% include "complaints/_field.html" with field=form.cause %}

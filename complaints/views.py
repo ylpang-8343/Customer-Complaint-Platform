@@ -3,6 +3,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.core.paginator import Paginator
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -251,10 +252,41 @@ def notification_log(request):
             "filters": filters,
             "querystring": query.urlencode(),
             "failed": NotificationLog.objects.filter(success=False).count(),
+            "delivers": emails.delivers_email(),
             "can_run_reminders": people.is_coordinator(request.user),
             "due_count": len(reminders.due_reminders()) if people.is_coordinator(request.user) else 0,
         },
     )
+
+
+@login_required
+@require_POST
+def send_test_email(request):
+    """Send one test email, so the Coordinator can see whether the site's email reaches people."""
+    if not people.is_coordinator(request.user):
+        messages.error(request, "Only the Coordinator can send a test email.")
+        return redirect("home")
+    address = request.POST.get("address", "").strip()
+    try:
+        validate_email(address)
+    except ValidationError:
+        messages.error(request, "Type the email address to send the test to.")
+        return redirect("notifications")
+    try:
+        emails.send_test_email(address, request.user)
+    except emails.DeliveryError as error:
+        emails.record_failure(error)
+        messages.error(request, f"The test email could not be sent: {error.entry['error']}")
+    else:
+        if emails.delivers_email():
+            messages.success(request, f"A test email was sent to {address}. Check the inbox, and the spam folder.")
+        else:
+            messages.warning(
+                request,
+                "No mail server is set up, so nothing was delivered: the test email was only written to the server log. "
+                "See the note at the top of this page.",
+            )
+    return redirect("notifications")
 
 
 @login_required

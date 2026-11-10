@@ -91,7 +91,9 @@
 <section class="card">
   <h2 class="section-title"><span class="badge">P</span> PIC investigation</h2>
   <dl class="facts">
+    <div class="wide"><dt>Investigation summary</dt><dd>{{ investigation.investigation_summary|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Root cause analysis</dt><dd>{{ investigation.root_cause|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Conclusion</dt><dd>{{ investigation.conclusion|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Correction</dt><dd>{{ investigation.correction|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Corrective and preventive action</dt><dd>{{ investigation.corrective_action|linebreaksbr|default:"—" }}</dd></div>
     <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>
@@ -182,7 +184,7 @@
       <tbody>
         {% for n in notifications %}
         <tr><td>{{ n.created_at|date:"j M Y, H:i" }}</td><td>{{ n.get_kind_display }}</td><td>{{ n.to_addresses|default:"—" }}</td>
-          <td>{% if n.success %}<span class="status status-response_sent">Sent</span>{% else %}<span class="status status-pending_scar">Failed</span> <span class="muted">{{ n.error }}</span>{% endif %}</td></tr>
+          <td>{% if n.success and n.delivered %}<span class="status status-response_sent">Sent</span>{% elif n.success %}<span class="status status-approved" title="No mail server was set up: the email was only written to the server log">Not delivered</span>{% else %}<span class="status status-pending_scar">Failed</span> <span class="muted">{{ n.error }}</span>{% endif %}</td></tr>
         {% empty %}<tr><td class="empty" colspan="4">No emails yet.</td></tr>{% endfor %}
       </tbody>
     </table>

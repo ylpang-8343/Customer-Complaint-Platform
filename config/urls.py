@@ -17,6 +17,7 @@ urlpatterns = [
     path("help/", complaint_views.help_page, name="help"),
     path("notifications/", complaint_views.notification_log, name="notifications"),
     path("notifications/run-reminders/", complaint_views.run_reminders, name="run_reminders"),
+    path("notifications/test-email/", complaint_views.send_test_email, name="send_test_email"),
     path("dashboard/", reports.dashboard, name="dashboard"),
     path("log/", reports.complaint_log, name="complaint_log"),
     path("log/export/", reports.log_export, name="log_export"),

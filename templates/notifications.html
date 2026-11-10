@@ -8,7 +8,22 @@
   <div class="kpi bad"><b>{{ failed }}</b><span>Failed in total (not delivered)</span></div>
 </div>
 
+{% if not delivers %}
+<div class="alert warn" role="status"><strong>No mail server is set up on this site.</strong> The emails below were not delivered: they were only written to the server log, although they are listed here. To send real email, set up an email service (see the deployment guide: <code>BREVO_API_KEY</code> and <code>DEFAULT_FROM_EMAIL</code>, or SMTP). Use <em>Send a test email</em> to check it.</div>
+{% endif %}
+
 {% if can_run_reminders %}
+<section class="card">
+  <form method="post" action="{% url 'send_test_email' %}" class="inline-form test-email">
+    {% csrf_token %}
+    <p><strong>Send a test email</strong> to find out whether the platform's email reaches people, and whether it lands in spam.</p>
+    <div class="row">
+      <input type="email" name="address" value="{{ user.email }}" placeholder="name@example.com" required aria-label="Send the test email to">
+      <button type="submit" class="button">Send test email</button>
+    </div>
+  </form>
+</section>
+
 <section class="card">
   <form method="post" action="{% url 'run_reminders' %}" class="inline-form">
     {% csrf_token %}
@@ -45,7 +60,7 @@
               {% if n.attachment_names %}<p class="muted">Attached: {{ n.attachment_names }}</p>{% endif %}
             </details>
           </td>
-          <td>{% if n.success %}<span class="status status-response_sent">Sent</span>{% else %}<span class="status status-pending_scar">Failed</span><br><span class="muted">{{ n.error }}</span>{% endif %}</td>
+          <td>{% if n.success and n.delivered %}<span class="status status-response_sent">Sent</span>{% elif n.success %}<span class="status status-approved" title="No mail server was set up: the email was only written to the server log">Not delivered</span>{% else %}<span class="status status-pending_scar">Failed</span><br><span class="muted">{{ n.error }}</span>{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td class="empty" colspan="6">No emails match.</td></tr>

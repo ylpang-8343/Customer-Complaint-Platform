@@ -82,6 +82,9 @@ button.link.danger { color: var(--bad); margin-left: .5rem; }
 .messages li.info { border-left-color: var(--info); }
 .alert.error { border: 1px solid var(--bad); border-radius: 6px; padding: .6rem .9rem; margin: 0 0 1rem; color: var(--bad); font-size: .9rem; }
 .errorlist { list-style: none; margin: 0; padding: 0; }
+.alert.warn { border: 1px solid var(--warn); border-radius: 6px; padding: .7rem .9rem; margin: 0 0 1rem; background: var(--scope-bg); color: var(--text); font-size: .88rem; }
+.test-email .row { display: flex; gap: .6rem; flex-wrap: wrap; }
+.test-email input[type=email] { flex: 1 1 18rem; padding: .5rem .7rem; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--text); font: inherit; }
 .alert.note { border: 1px solid var(--info); border-radius: 6px; padding: .6rem .9rem; margin: 0 0 1rem; background: var(--scope-bg); color: var(--text); font-size: .88rem; }
 ul.plain { margin: .4rem 0 .8rem; padding-left: 1.2rem; font-size: .9rem; }
 ul.plain li { margin-bottom: .25rem; }

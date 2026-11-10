@@ -58,7 +58,15 @@ class AssignForm(FilesMixin, forms.Form):
 
 
 class InvestigationForm(FilesMixin, forms.Form):
+    investigation_summary = forms.CharField(
+        label="Investigation summary", required=False, widget=forms.Textarea(attrs={"rows": 4}),
+        help_text="What was reviewed and found: records, samples, tests. It is used in the reply to the customer.",
+    )  # fmt: skip
     root_cause = forms.CharField(label="Root cause analysis", required=False, widget=forms.Textarea(attrs={"rows": 5}))
+    conclusion = forms.CharField(
+        label="Conclusion", required=False, widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="The outcome, for example whether the product met specification. It is used in the reply to the customer.",
+    )  # fmt: skip
     correction = forms.CharField(
         label="Correction", required=False, widget=forms.Textarea(attrs={"rows": 4}),
         help_text="What was done to deal with this complaint.",
@@ -78,7 +86,9 @@ class InvestigationForm(FilesMixin, forms.Form):
         investigation = getattr(complaint, "investigation", None)
         if not self.is_bound:
             self.initial = {
+                "investigation_summary": investigation.investigation_summary if investigation else "",
                 "root_cause": investigation.root_cause if investigation else "",
+                "conclusion": investigation.conclusion if investigation else "",
                 "correction": investigation.correction if investigation else "",
                 "corrective_action": investigation.corrective_action if investigation else "",
                 "cause": complaint.cause,

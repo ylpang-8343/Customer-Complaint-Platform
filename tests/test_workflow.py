@@ -506,7 +506,9 @@ def test_a_deputy_fm_acts_while_the_fm_is_away(as_user, user_of):
 def test_the_reply_is_built_from_the_findings_and_the_approval(as_user, user_of):
     complaint = approved(as_user, user_of)
     html = as_user("fa.pic").get(reverse("complaint_reply", args=[complaint.pk])).content.decode()
-    assert "Seal failed" in html and "Changed the supplier of seals" in html and "approved by" in html and "Good work" in html
+    # The root cause and the corrective action come from the findings; the signature is the approving FM.
+    assert "Seal failed" in html and "Changed the supplier of seals" in html
+    assert "Investigation Findings for Complaint" in html and "Sample FM FA" in html and "Factory Manager, Factory A" in html
 
 
 def test_sending_the_reply_keeps_a_copy_and_notifies_the_others(as_user, user_of):

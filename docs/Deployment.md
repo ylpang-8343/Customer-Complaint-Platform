@@ -2,7 +2,7 @@
 
 How to publish the platform as a **demo** on [Render](https://render.com), with a free web service and a free PostgreSQL database. Everything the host needs is already in the repository: `render.yaml` (the blueprint), `build.sh` (the build step) and the production settings in `config/settings.py`.
 
-This is for a demonstration with fictional data. It is not set up for real complaints: see [section 6](#6-before-a-real-launch).
+This is for a demonstration with fictional data. It is not set up for real complaints: see [section 7](#7-before-a-real-launch).
 
 ## 1. What the free plan means
 
@@ -11,10 +11,10 @@ These come from Render's free-tier terms at the time of writing. Check [render.c
 | On the free plan | What it means for the demo |
 |---|---|
 | The web service goes to sleep after about 15 minutes with no visits | The first visit after a quiet spell takes up to a minute to load. Open the site a minute before showing it. |
-| The free database [expires 30 days after it is created](https://render.com/changelog/free-postgresql-instances-now-expire-after-30-days-previously-90); it is 1 GB and has no backups | After 30 days make a new free database and redeploy (section 5). The demo data is created again. |
+| The free database [expires 30 days after it is created](https://render.com/changelog/free-postgresql-instances-now-expire-after-30-days-previously-90); it is 1 GB and has no backups | After 30 days make a new free database and redeploy (section 6). The demo data is created again. |
 | The web service's disk is not kept | Files uploaded in the demo disappear when the service restarts or redeploys. The pages cope with a missing file: the download is not found and the audit pack lists it. |
 | No scheduled jobs on the free plan | Reminders are sent with the **Send due reminders now** button on the Notifications page (Coordinator only). |
-| Email | With no mail server set, emails are not sent: Django prints them in the service log. The Notifications page still lists every one as *Sent*, with its text, so the demo can show them, but nothing leaves the service. Outbound mail may also be limited on free instances. |
+| Email | With no mail server set, emails are not sent: they are written to the service log, and the Notifications page marks each one *Not delivered* and says so at the top. Render's free plan also [blocks the SMTP ports](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports) (25, 465 and 587), so Gmail SMTP cannot work there. To send real email, use a mail service that works over HTTPS (section 5). |
 
 ## 2. Deploy it
 
@@ -62,28 +62,68 @@ This was prepared without a Render account, so it has not run on Render itself. 
 - `build.sh` was run against an empty PostgreSQL database with the production settings, twice (a redeploy keeps the demo data as it is).
 - The app was then run in production mode behind a stand-in for Render's HTTPS proxy and driven in Chrome: HTTP redirected to HTTPS, the health check answered on plain HTTP, the stylesheet came with a hashed name, sessions and CSRF cookies were `Secure`, sign-in worked, the dashboard, notifications, reminders button, PDF report, audit pack, Excel export, a workflow step, and an upload and download all worked.
 
-So the first real deploy is the first time it runs on Render's own network. If something fails there, section 7 lists the likely causes.
+So the first real deploy is the first time it runs on Render's own network. If something fails there, section 8 lists the likely causes.
 
-## 5. Looking after it
+## 5. Sending real email
+
+Nothing is delivered until a mail server is set up. Without one the emails are only written to the service's log, and Notifications says *Not delivered*. Choose the route that fits:
+
+| Where it runs | How to send real email |
+|---|---|
+| **On your own computer** (to try the real thing, for example to email a Gmail address) | Gmail's SMTP, with an App Password (below). Gmail sends as itself, so it reaches inboxes. |
+| **On Render's free plan** | A mail service over HTTPS: set `BREVO_API_KEY` (or `RESEND_API_KEY`, `SENDGRID_API_KEY`, `MAILGUN_API_KEY` with `MAILGUN_SENDER_DOMAIN`, `POSTMARK_SERVER_TOKEN`) and `DEFAULT_FROM_EMAIL`. SMTP is blocked there. |
+| **On a paid host, or your own server** | Either of the above, or any SMTP server with `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`. |
+
+**The sender address matters.** Mail services will only send from an address or domain you have verified. For mail to reach inboxes (and not spam) use an address on a **domain you own**, verified with the service (SPF and DKIM records). Gmail addresses [cannot be authenticated by Brevo](https://community.brevo.com/t/email-being-sent-with-t-sender-sib-com/783): the service may replace the sender, refuse the message, or the mail may land in spam. If you have no domain, run the demo on your own computer with Gmail SMTP.
+
+### Gmail SMTP on your own computer
+
+1. In the Google account: turn on 2-Step Verification, then create an **App Password** (Account > Security > App passwords). It is 16 letters.
+2. In PowerShell, in the project folder, set the variables and run the site (the sender must be the same Gmail address):
+
+```powershell
+$env:EMAIL_HOST = "smtp.gmail.com"
+$env:EMAIL_PORT = "587"
+$env:EMAIL_USE_TLS = "true"
+$env:EMAIL_HOST_USER = "you@gmail.com"
+$env:EMAIL_HOST_PASSWORD = "your-16-letter-app-password"
+$env:DEFAULT_FROM_EMAIL = "you@gmail.com"
+.venv\Scripts\python manage.py runserver
+```
+
+3. Sign in as `mr`, open **Notifications**, type the address to try (for example your mother's Gmail), choose **Send test email**. The message says whether it was sent; check the inbox and the spam folder.
+
+### Brevo on Render (with a domain you own)
+
+1. Create a free [Brevo](https://www.brevo.com) account. Under **Senders, domains & dedicated IPs** add and **authenticate your domain** (Brevo shows the DNS records to add), then add the sender address, for example `complaints@yourdomain.com`.
+2. Under **SMTP & API > API Keys** create an API key.
+3. In Render, open the web service > **Environment** and add `BREVO_API_KEY` (the key) and `DEFAULT_FROM_EMAIL` (the verified sender). Save: Render redeploys.
+4. Sign in as `mr`, open **Notifications** and use **Send test email**. If it fails, the page shows the reason Brevo gave (for example, the sender is not verified).
+
+Brevo's free plan allows 300 emails a day, which is plenty for a demo. Limits and rules change, so check Brevo's pages.
+
+Every email now says *Sent* only when a mail server accepted it. That means the server took it, not that the person has read it: check the spam folder, and use the test email to find out.
+
+## 6. Looking after it
 
 - **Updates.** Pushing to the connected branch deploys again. Use **Manual Deploy** in Render to redeploy without a push.
 - **Reset the demo data.** Complaints made during the demo stay until you reset them. To start again, delete the database in Render, create a new free one called `complaints-db`, and redeploy: `build.sh` loads the demo data again.
 - **The database expires after 30 days.** Do the same. Free databases cannot be restored after they expire, so keep nothing there that you need.
 - **Logs.** The service's **Logs** tab shows errors, sign-in problems and the output of `build.sh`.
 
-## 6. Before a real launch
+## 7. Before a real launch
 
 The demo settings are deliberately not what a real site should use:
 
 - Remove `DEMO_MODE` and `DEMO_DATA`, and use a paid plan: a paid database with backups, and a service that does not sleep.
 - Store uploaded files on a persistent disk or object storage, and back them up. On Render the free disk is erased on every restart.
 - Run `send_reminders` once a day with a scheduler (a Render cron job, or the host's own).
-- Send real email by setting `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` and `DEFAULT_FROM_EMAIL`, and test that customers receive it.
+- Send real email (section 5), from an address on your own verified domain, and test that customers receive it and that it does not land in spam. Set `COMPANY_NAME` to the company's name for the signature of the reply to the customer.
 - Once HTTPS works, set `DJANGO_HSTS_SECONDS` (for example `31536000`).
 - Add a "forgot password" page and sign-in lockout, or single sign-on. Only an administrator can create users and reset passwords today.
 - Change every demo password, or delete the demo users.
 
-## 7. If something goes wrong
+## 8. If something goes wrong
 
 | What you see | Likely cause and fix |
 |---|---|
@@ -92,6 +132,6 @@ The demo settings are deliberately not what a real site should use:
 | `Forbidden (403) CSRF verification failed` | The address people use is not trusted. Add it, with `https://`, in `DJANGO_CSRF_TRUSTED_ORIGINS` (needed for a custom domain). |
 | The pages have no styling | The static files were not gathered: check that the build log shows `collectstatic` ran. |
 | Very slow first page | The free service was asleep. It wakes within a minute. |
-| Database errors after about a month | The free database expired (section 5). |
+| Database errors after about a month | The free database expired (section 6). |
 | Links in emails point to `127.0.0.1` | `SITE_URL` is not set. On Render it comes from `RENDER_EXTERNAL_URL`; for a custom domain set `SITE_URL`. |
 | *Failed* emails in Notifications | A mail server is set and refused the message (see the reason shown). With no mail server set, the demo shows every email as *Sent* but sends none. |

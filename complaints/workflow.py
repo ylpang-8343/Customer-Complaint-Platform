@@ -271,7 +271,9 @@ def delete(complaint, actor, reason):
 # --- Step 4: the PIC investigates ----------------------------------------------------------
 
 
-def save_investigation(complaint, actor, root_cause, correction, corrective_action, cause, files=()):
+def save_investigation(
+    complaint, actor, root_cause, correction, corrective_action, cause, files=(), investigation_summary=None, conclusion=None
+):
     _require(can_investigate(actor, complaint), "You are not assigned to this complaint, or it is not under investigation.")
     with transaction.atomic():
         _lock(complaint)
@@ -280,6 +282,10 @@ def save_investigation(complaint, actor, root_cause, correction, corrective_acti
         investigation.root_cause = root_cause
         investigation.correction = correction
         investigation.corrective_action = corrective_action
+        if investigation_summary is not None:
+            investigation.investigation_summary = investigation_summary
+        if conclusion is not None:
+            investigation.conclusion = conclusion
         investigation.save()
         complaint.cause = cause
         complaint.save()

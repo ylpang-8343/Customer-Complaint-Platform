@@ -134,7 +134,8 @@ class NotificationFilterForm(forms.Form):
     )
     kind = forms.ChoiceField(required=False, choices=[("", "All kinds"), *NotificationLog.Kind.choices])
     result = forms.ChoiceField(
-        required=False, choices=[("", "Sent and failed"), ("sent", "Sent"), ("failed", "Failed")]
+        required=False,
+        choices=[("", "All results"), ("sent", "Sent"), ("notdelivered", "Not delivered (no mail server)"), ("failed", "Failed")],
     )
 
     def apply(self, queryset):
@@ -149,8 +150,13 @@ class NotificationFilterForm(forms.Form):
             )
         if data.get("kind"):
             queryset = queryset.filter(kind=data["kind"])
-        if data.get("result"):
-            queryset = queryset.filter(success=data["result"] == "sent")
+        result = data.get("result")
+        if result == "sent":
+            queryset = queryset.filter(success=True, delivered=True)
+        elif result == "notdelivered":
+            queryset = queryset.filter(success=True, delivered=False)
+        elif result == "failed":
+            queryset = queryset.filter(success=False)
         return queryset
 
 

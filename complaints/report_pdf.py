@@ -209,7 +209,9 @@ def build_story(complaint):
 
     # Response section: the PIC's findings and any SCAR
     findings = [
+        ("Investigation summary", investigation.investigation_summary if investigation else ""),
         ("Root cause analysis", investigation.root_cause if investigation else ""),
+        ("Conclusion", investigation.conclusion if investigation else ""),
         ("Correction", investigation.correction if investigation else ""),
         ("Corrective and preventive action", investigation.corrective_action if investigation else ""),
         ("Cause", c.get_cause_display() if c.cause else ""),

@@ -89,7 +89,7 @@ TASKS = [
     (
         "As a PIC, how do I record my investigation?",
         [
-            "Open the complaint and choose Investigation. Enter the root cause analysis, the correction and the corrective and preventive action, say whether the cause is internal or external, and attach files.",
+            "Open the complaint and choose Investigation. Enter the investigation summary, the root cause analysis, the conclusion, the correction and the corrective and preventive action, say whether the cause is internal or external, and attach files. The summary, root cause, conclusion and corrective action are the parts of the reply to the customer, so write them for the customer to read.",
             "Save at any time. Choose Submit to HOD when the findings are complete: the platform emails the HOD. If the HOD or FM sends it back, their comment is shown at the top and you improve the response and submit again.",
         ],
     ),
@@ -124,7 +124,7 @@ TASKS = [
     (
         "As a PIC, how do I reply to the customer?",
         [
-            "After the FM approves, choose Reply to customer. The email is built from the findings, the corrective action and the approval. Edit it, add files and send it to the email address on the complaint.",
+            "After the FM approves, choose Reply to customer. The email follows the standard template: the shipment details, then the investigation summary, root cause assessment, conclusion and corrective and preventive actions from your findings, and a signature with the name and position of the FM who approved it and the company. A part you left empty is left out. Edit anything, add files and send it to the email address on the complaint.",
             "The platform keeps a copy, sets the status to Customer Response Sent and tells the HOD, FM and Coordinator.",
         ],
     ),
@@ -177,7 +177,7 @@ TASKS = [
         "Where can I see which emails were sent?",
         [
             "The Coordinator and top management have Notifications in the menu. It lists every email the platform sent: who it went to, the subject and text, the attachments, and whether it was delivered.",
-            "A failed email never stops a step, but it is marked Failed with the reason. Tell the people concerned that the complaint is waiting for them. Each complaint also shows its own emails at the bottom of its page.",
+            "If the site has no mail server set up, a warning at the top says the emails were not delivered and each is marked Not delivered. The Coordinator can send a test email to any address to check that real email arrives. A failed email never stops a step, but it is marked Failed with the reason. Tell the people concerned that the complaint is waiting for them. Each complaint also shows its own emails at the bottom of its page.",
         ],
     ),
 ]

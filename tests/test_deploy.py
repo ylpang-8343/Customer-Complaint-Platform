@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_ENV = (
     "DJANGO_DEBUG", "DJANGO_SECRET_KEY", "DJANGO_ALLOWED_HOSTS", "DJANGO_CSRF_TRUSTED_ORIGINS", "DJANGO_SSL_REDIRECT",
     "DJANGO_HSTS_SECONDS", "DATABASE_URL", "POSTGRES_DB", "SITE_URL", "RENDER_EXTERNAL_HOSTNAME", "RENDER_EXTERNAL_URL",
-    "DEMO_MODE", "EMAIL_HOST",
+    "DEMO_MODE", "EMAIL_HOST", "EMAIL_BACKEND", "BREVO_API_KEY", "RESEND_API_KEY", "SENDGRID_API_KEY", "MAILGUN_API_KEY",
+    "POSTMARK_SERVER_TOKEN", "COMPANY_NAME",
 )  # fmt: skip
 
 
@@ -32,7 +33,7 @@ def read_settings(**env):
         "import json; from config import settings as s;"
         "print(json.dumps({k: getattr(s, k, None) for k in ['DEBUG', 'ALLOWED_HOSTS', 'CSRF_TRUSTED_ORIGINS', 'SITE_URL', "
         "'DEMO_MODE', 'SECURE_SSL_REDIRECT', 'SESSION_COOKIE_SECURE', 'CSRF_COOKIE_SECURE', 'SECURE_HSTS_SECONDS', "
-        "'SECURE_PROXY_SSL_HEADER', 'SECURE_REDIRECT_EXEMPT', 'MIDDLEWARE', 'STORAGES', 'EMAIL_BACKEND']} | "
+        "'SECURE_PROXY_SSL_HEADER', 'SECURE_REDIRECT_EXEMPT', 'MIDDLEWARE', 'STORAGES', 'EMAIL_BACKEND', 'ANYMAIL', 'DEFAULT_FROM_EMAIL', 'COMPANY_NAME']} | "
         "{'DATABASE': s.DATABASES['default']}, default=str))"
     )
     run = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env={**clean, **env}, capture_output=True, text=True)

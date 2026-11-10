@@ -64,7 +64,7 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
 They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 248 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 283 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
@@ -79,6 +79,8 @@ They take about two minutes (the PDF and import tests are the slowest) and use a
 | `tests/test_reports.py` | 28 | Dashboard figures and filters, scope by role, the log columns, the Excel file (columns, dates, summary, scope, formula-like text) |
 | `tests/test_report_pdf.py` | 13 | The PDF report (every section, page numbers, laboratory section only with a sample, deleted banner, unsupported characters, very long text, who may download) and the audit pack (contents, duplicate file names, missing files) |
 | `tests/test_deploy.py` | 21 | Putting it on a host: the settings read from the environment (production mode, `DATABASE_URL`, Render's address, HTTPS and cookies), the health check, the demo sign-in page, `seed --demo --complaints`, sending reminders from the page, an administrator from the environment, and the Render files |
+| `tests/test_reply_email.py` | 15 | The reply to the customer: the subject and body follow `docs/emailTemplate.md` (parts in order, sections left out when empty, vessel or vehicle, greeting, signature, company name), and the investigation summary and conclusion are entered, kept, shown to reviewers and in the PDF |
+| `tests/test_email_delivery.py` | 20 | Which mail service the settings choose, "Not delivered" when no mail server is set up (the warning, the label, the filter), the test email, and a mail service over HTTPS with the network call replaced (the request, a refusal and its reason) |
 | `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
@@ -229,7 +231,7 @@ Expected: a rejection needs a comment and emails the PIC, HOD and Coordinator, a
 **T14 Reply to the customer** (`fa.pic`)
 1. Choose **Reply to customer**. Read the text, edit it, attach a file and choose **Send to customer**.
 
-Expected: the text is built from the findings, the corrective action and the FM's approval. The email goes to the address on the complaint with a copy to the PIC. The status is *Customer Response Sent*, the complaint keeps a copy of the reply, and the HOD, FM and Coordinator are notified. If a SCAR has not been returned, the page says the reply is held and cannot be sent.
+Expected: the subject is *Investigation Findings for Complaint FA/2026/0001 – Product / Contract*. The body follows `docs/emailTemplate.md`: *Dear* the contact person (or the buyer's team), the shipment details as a list (product, quantity, vessel or vehicle, delivery date, ports, contract, the complaint), then *Investigation Summary, Root Cause Assessment, Conclusion* and *Corrective and Preventive Actions* taken from the findings (a part left empty is left out), a closing paragraph, and the signature of the FM who approved it with the position and company. The email goes to the address on the complaint with a copy to the PIC. The status is *Customer Response Sent*, the complaint keeps a copy of the reply, and the HOD, FM and Coordinator are notified. If a SCAR has not been returned, the page says the reply is held and cannot be sent.
 
 ![Reply](img/39-reply.png)
 
@@ -419,7 +421,18 @@ Expected: each row becomes a complaint with a new reference (for example `FA/202
 
 - [ ] Pass
 
-### K. The demo site (after deploying on Render)
+### K. Real email
+
+**T33 Does the email arrive?** (`mr`, on your own computer with Gmail, or on a site with a mail service)
+1. Without any mail server set (the default), open **Notifications**.
+2. Set up a mail server (see [Deployment.md](Deployment.md), section 5) and restart. Open **Notifications**, type your own address, choose **Send test email**.
+3. Take a complaint to the reply step with *your* email address as the buyer's email, and send the reply.
+
+Expected: with no mail server, a warning at the top says the emails were not delivered, each is marked *Not delivered*, and the test email says nothing was delivered. With a mail server the test email arrives (check the spam folder) and the page says it was sent; a refusal shows the reason the server gave. The reply arrives with the subject and text of the template. *Sent* in the list means a mail server accepted the email, not that it was read.
+
+- [ ] Pass
+
+### L. The demo site (after deploying on Render)
 
 **T32 A deployed demo** (any browser, a phone too)
 1. Follow [Deployment.md](Deployment.md) and open the address Render gives. Wait for a sleeping service to wake (up to a minute).
@@ -450,6 +463,7 @@ Expected: the sign-in page lists the demo users and the shared password. The Das
 | Dashboard and complaint log | T22, T23 |
 | PDF report and audit pack (FSSC, ISO) | T27, T28 |
 | Upload of past complaints | T29, T30, T31 |
+| Email that arrives, and the reply template | T14, T33 |
 | Running the demo on a host | T32 |
 | Access by role and factory | T02, T06, T11, T22, T23 |
 | Progress and history | T16 |
@@ -494,4 +508,4 @@ It runs seven scripts one after the other, prints how many screenshots were save
 
 | Date | Tester | Version or commit | Automated tests | Manual scenarios passed | Notes |
 |---|---|---|---|---|---|
-| | | | | / 32 | |
+| | | | | / 33 | |

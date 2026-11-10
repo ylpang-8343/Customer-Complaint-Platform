@@ -123,6 +123,7 @@ def complaint_investigation(request, pk):
                 workflow.save_investigation(
                     complaint, request.user, data["root_cause"], data["correction"],
                     data["corrective_action"], data["cause"], data["attachments"],
+                    investigation_summary=data["investigation_summary"], conclusion=data["conclusion"],
                 )  # fmt: skip
                 if "submit" in request.POST:
                     notified = workflow.submit_to_hod(complaint, request.user)

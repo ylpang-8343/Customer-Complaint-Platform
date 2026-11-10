@@ -150,7 +150,8 @@ try:
 
         page.goto(BASE + "/notifications/")
         shot(page, "45-notification-log", full=False)
-        check("log shows two failed and two sent reminders", page.locator(".status-pending_scar").count() == 2 and page.locator("tr:has-text('Reminder') .status-response_sent").count() == 2)
+        check("a warning says no mail server is set up, so nothing is delivered", "No mail server is set up on this site" in page.content())
+        check("log shows two failed reminders and two that were only logged", page.locator(".status-pending_scar").count() == 2 and page.locator("tr:has-text('Reminder') .status-approved").count() == 2 and "Not delivered" in page.content())
         page.select_option("select[name=result]", label="Failed")
         page.click("button:has-text('Apply')")
         page.wait_for_load_state()

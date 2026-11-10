@@ -12,7 +12,7 @@ def navigation(request):
         return {"nav_current": "home"}
     if name in ("complaint_new", "complaint_edit"):
         return {"nav_current": "new"}
-    if name in ("notifications", "run_reminders", "dashboard"):
+    if name in ("notifications", "run_reminders", "send_test_email", "dashboard"):
         return {"nav_current": name}
     if name in ("import_home", "import_template", "import_preview"):
         return {"nav_current": "import"}

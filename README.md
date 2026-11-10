@@ -123,7 +123,7 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 248 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 283 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 

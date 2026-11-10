@@ -1,6 +1,17 @@
-"""Default wording for the SCAR and the customer reply. The PIC can edit both before sending."""
+"""Default wording for the SCAR and the customer reply. The PIC can edit both before sending.
 
+The reply to the customer follows the recommended template in docs/emailTemplate.md: the shipment details,
+then the investigation summary, root cause assessment, conclusion and corrective and preventive actions, and a
+signature with the approver's name, position and company.
+"""
+
+import re
+
+from django.conf import settings
 from django.utils import formats
+
+EN_DASH = "–"
+COMPLAINT_SUMMARY_LIMIT = 500  # characters of the description quoted in the reply
 
 
 def _date(value):
@@ -26,39 +37,100 @@ def scar_message(complaint, party_name="", user=None):
     )
 
 
+# --- The reply to the customer ----------------------------------------------------------------------------------
+
+
 def reply_subject(complaint):
-    return f"Your complaint {complaint.reference}: {complaint.product_name or 'our reply'}"
+    """Investigation Findings for Complaint FA/2026/0005 - RPO FM PG / SD123456"""
+    subject = f"Investigation Findings for Complaint {complaint.reference}"
+    details = " / ".join(part for part in (complaint.product_name, complaint.contract_number) if part)
+    return f"{subject} {EN_DASH} {details}" if details else subject
+
+
+def _customer_name(complaint):
+    if complaint.contact_person:
+        return complaint.contact_person
+    return f"{complaint.buyer} Team" if complaint.buyer else "Sir/Madam"
+
+
+def _quantity(complaint):
+    if complaint.affected_quantity is None:
+        return ""
+    return f"{complaint.affected_quantity.normalize():f} {complaint.get_quantity_unit_display()}".strip()
+
+
+def _complaint_summary(complaint):
+    """The description on one line, as the 'Complaint' line of the shipment details."""
+    text = re.sub(r"\s+", " ", complaint.description or "").strip()
+    if len(text) > COMPLAINT_SUMMARY_LIMIT:
+        text = text[:COMPLAINT_SUMMARY_LIMIT].rstrip() + " ..."
+    return text or str(complaint.complaint_sub_type or complaint.complaint_type or "")
+
+
+def _shipment_lines(complaint):
+    """The bullet list of the shipment. Only what the complaint records is listed."""
+    c = complaint
+    items = [
+        ("Product", c.product_name),
+        ("Quantity", _quantity(c)),
+        ("Vessel", c.vessel_name),
+        ("Vehicle", c.vehicle_number),
+        ("Container", c.container_number),
+        ("Delivery Date", _date(c.delivery_date)),
+        ("Loading Port", c.loading_port),
+        ("Port of Discharge", c.discharge_port),
+        ("Contract No.", c.contract_number),
+        ("Complaint", _complaint_summary(c)),
+    ]
+    return [f"   - {label}: {value}" for label, value in items if value]
+
+
+def _approver(complaint, sender):
+    """Who signs: the Factory Manager who approved the response, or the person sending it if there is none."""
+    approval = complaint.events.filter(action="fm_approved").select_related("actor").last()
+    return approval.actor if approval and approval.actor else sender
+
+
+def _signature(complaint, sender):
+    person = _approver(complaint, sender)
+    if person is None:
+        return [str(complaint.factory), settings.COMPANY_NAME]
+    position = person.get_role_display()
+    if complaint.factory:
+        position = f"{position}, {complaint.factory}"
+    return [str(person), position, settings.COMPANY_NAME]
 
 
 def reply_message(complaint, user=None):
-    """The customer reply, built from the investigation, the FM's approval and the SCAR if any."""
+    """The reply to the customer, built from the shipment details, the findings and the approval."""
     investigation = getattr(complaint, "investigation", None)
     lines = [
-        f"Dear {complaint.contact_person or 'Sir/Madam'},",
+        f"Dear {_customer_name(complaint)},",
         "",
-        f"Thank you for telling us about your complaint on {complaint.product_name or 'our product'}"
-        + (f" (contract {complaint.contract_number})" if complaint.contract_number else "")
-        + f". Our reference is {complaint.reference}. We are sorry for the trouble this has caused.",
+        "Thank you for notifying us regarding the quality concern for the shipment detailed below:",
+        "",
+        *_shipment_lines(complaint),
+        "",
+        "Following our investigation, we would like to share the following findings:",
         "",
     ]
     if investigation:
         for heading, text in (
-            ("What we found (root cause)", investigation.root_cause),
-            ("What we have done (correction)", investigation.correction),
-            ("What we will do to prevent it happening again (corrective and preventive action)",
-             investigation.corrective_action),
-        ):  # fmt: skip
-            if text:
-                lines += [heading + ":", text, ""]
-    approval = complaint.events.filter(action="fm_approved").last()
-    if approval:
-        note = f" Comment: {approval.comment}" if approval.comment else ""
-        lines += [f"This response was approved by {approval.actor} on {_date(approval.created_at)}.{note}", ""]
+            ("Investigation Summary", investigation.investigation_summary),
+            ("Root Cause Assessment", investigation.root_cause),
+            ("Conclusion", investigation.conclusion),
+            ("Corrective and Preventive Actions", investigation.corrective_action),
+        ):
+            if text and text.strip():
+                lines += [heading, text.strip(), ""]
     lines += [
-        "Please contact us if you would like to discuss this further.",
+        "We appreciate your cooperation throughout this investigation. Should you require any further "
+        "clarification or wish to discuss the findings in more detail, please do not hesitate to contact us.",
+        "",
+        "Thank you for your continued support.",
         "",
         "Yours sincerely,",
-        str(user) if user else "",
-        str(complaint.factory),
+        "",
+        *_signature(complaint, user),
     ]
     return "\n".join(lines)

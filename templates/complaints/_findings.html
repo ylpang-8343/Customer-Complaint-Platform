@@ -2,7 +2,9 @@
   <h2 class="section-title"><span class="badge">1</span> The PIC's findings</h2>
   {% if investigation %}
   <dl class="facts">
+    <div class="wide"><dt>Investigation summary</dt><dd>{{ investigation.investigation_summary|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Root cause analysis</dt><dd>{{ investigation.root_cause|linebreaksbr|default:"—" }}</dd></div>
+    <div class="wide"><dt>Conclusion</dt><dd>{{ investigation.conclusion|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Correction</dt><dd>{{ investigation.correction|linebreaksbr|default:"—" }}</dd></div>
     <div class="wide"><dt>Corrective and preventive action</dt><dd>{{ investigation.corrective_action|linebreaksbr|default:"—" }}</dd></div>
     <div><dt>Cause</dt><dd>{{ complaint.get_cause_display|default:"—" }}</dd></div>

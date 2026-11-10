@@ -39,6 +39,9 @@ workflow.save_investigation(
     "Replaced the affected flexibags and repacked the shipment before the next loading.",
     "Audit the supplier's welding process and add a seal pressure test before filling.", "external",
     [SimpleUploadedFile("weld-photo.png", b"\x89PNG demo")],
+    investigation_summary=("We reviewed the packing and loading records, the supplier's weld test report and the retained "
+                           "sample taken at loading. The retained sample met the specification."),
+    conclusion="The leak was caused by a defective weld at the supplier, not by our filling or loading.",
 )
 workflow.save_lab(
     c, lab, datetime.date(2026, 11, 2), "Both samples are within specification except for FFA.",
@@ -58,10 +61,9 @@ workflow.save_investigation(
 workflow.submit_to_hod(c, pic)
 workflow.hod_submit_to_fm(c, hod, "valid", "external")
 workflow.fm_decide(c, fm, True, "Approved. Thank you for the quick turnaround.")
-workflow.send_reply(c, pic, f"Your complaint {c.reference}: Refined palm oil",
-                    "Dear Sample Contact,\n\nThank you for telling us about the leaking flexibag. We have replaced the "
-                    "affected packs and will audit the supplier by 30 November.\n\nYours sincerely,\nSample PIC FA\nFactory A",
-                    [SimpleUploadedFile("test-report.pdf", b"%PDF-1.4 demo")])
+from complaints import texts  # the reply is the standard template, as the PIC would see it
+
+workflow.send_reply(c, pic, texts.reply_subject(c), texts.reply_message(c, pic), [SimpleUploadedFile("test-report.pdf", b"%PDF-1.4 demo")])
 workflow.save_verification(c, mr, datetime.date(2026, 12, 1), "No repeat of the leak in the next two shipments.", datetime.date(2027, 3, 1), "Supplier audit completed.")
 workflow.close_case(c, mr, "Corrective action effective.")
 print("created", c.reference, c.pk)

@@ -21,6 +21,18 @@ from .summary import summary_sections
 logger = logging.getLogger(__name__)
 Kind = NotificationLog.Kind
 
+# Backends that only write the email somewhere on the server: nothing reaches the recipient.
+NON_DELIVERING_BACKENDS = {
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
+}
+
+
+def delivers_email():
+    """False when the site has no mail server set up, so its emails are written to the server log only."""
+    return settings.EMAIL_BACKEND not in NON_DELIVERING_BACKENDS
+
 
 class DeliveryError(Exception):
     """The mail server did not accept the email. ``entry`` holds what the log line should say."""
@@ -59,6 +71,7 @@ def _send(kind, complaint, subject, body, to, cc=(), attachments=(), reply_to=()
         "cc_addresses": ", ".join(cc),
         "body": body,
         "attachment_names": ", ".join(name for name, _, _ in attachments),
+        "delivered": delivers_email(),
     }
     if not to:
         NotificationLog.objects.create(success=False, error="No email address to send it to.", **entry)
@@ -75,6 +88,18 @@ def _send(kind, complaint, subject, body, to, cc=(), attachments=(), reply_to=()
         raise DeliveryError({**entry, "error": f"{type(error).__name__}: {error}"[:1000]}, error) from error
     NotificationLog.objects.create(success=True, **entry)
     return sent
+
+
+def send_test_email(address, sender):
+    """A plain email to one address, to find out whether the platform's email reaches people."""
+    body = (
+        f"This is a test email from the Customer Complaint Platform, sent by {sender} to check that email "
+        "delivery works.\n\nIf you can read this, emails from the platform reach you. If it was in your spam "
+        "folder, mark it as not spam.\n"
+    )
+    return _send(
+        Kind.TEST, None, "Test email from the Customer Complaint Platform", body, [address], reply_to=_addresses([sender])
+    )
 
 
 def deliver(function, *args, **kwargs):

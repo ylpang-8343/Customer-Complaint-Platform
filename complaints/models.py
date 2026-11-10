@@ -459,7 +459,11 @@ class Investigation(models.Model):
     """The PIC's findings (step 4)."""
 
     complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name="investigation")
+    investigation_summary = models.TextField(
+        blank=True, help_text="What was reviewed and what was found (records, samples, tests). Used in the reply to the customer."
+    )
     root_cause = models.TextField("Root cause analysis", blank=True)
+    conclusion = models.TextField(blank=True, help_text="The outcome, for example whether the product met specification.")
     correction = models.TextField(blank=True, help_text="What was done to deal with this complaint.")
     corrective_action = models.TextField(
         "Corrective and preventive action", blank=True, help_text="What will stop it happening again."
@@ -590,6 +594,7 @@ class NotificationLog(models.Model):
         REPLY_SENT = "reply_sent", "Reply sent notice"
         NOT_EFFECTIVE = "not_effective", "Action not effective"
         REMINDER = "reminder", "Reminder"
+        TEST = "test", "Test email"
 
     complaint = models.ForeignKey(
         Complaint, null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
@@ -601,6 +606,8 @@ class NotificationLog(models.Model):
     body = models.TextField(blank=True)
     attachment_names = models.TextField(blank=True)
     success = models.BooleanField(default=True)
+    # False when the site has no mail server set up: the email was only written to the server log.
+    delivered = models.BooleanField(default=True)
     error = models.TextField(blank=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
