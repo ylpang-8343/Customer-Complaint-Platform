@@ -12,10 +12,21 @@ def navigation(request):
         return {"nav_current": "home"}
     if name in ("complaint_new", "complaint_edit"):
         return {"nav_current": "new"}
-    if name in ("notifications", "dashboard"):
+    if name in ("notifications", "run_reminders", "dashboard"):
         return {"nav_current": name}
     if name in ("import_home", "import_template", "import_preview"):
         return {"nav_current": "import"}
     if name in ("complaint_log", "log_export"):
         return {"nav_current": "log"}
     return {"nav_current": "help" if name == "help" else ""}
+
+
+def demo(request):
+    """On a public demo site the sign-in page tells visitors which users they can try."""
+    from django.conf import settings
+
+    if not settings.DEMO_MODE:
+        return {"demo_mode": False}
+    from accounts.management.commands.seed import DEMO_PASSWORD
+
+    return {"demo_mode": True, "demo_password": DEMO_PASSWORD}

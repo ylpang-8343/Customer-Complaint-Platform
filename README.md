@@ -70,6 +70,17 @@ CAR number left out because the complaint reference replaces it. **Export to Exc
 file, followed by the summary and a line saying who exported what. Both follow the user's role and factory, so nobody exports
 more than they can see. Drafts are never counted.
 
+## Putting it online (a free demo on Render)
+
+The repository is ready to deploy as a demo on [Render](https://render.com) with a free web service and a free PostgreSQL
+database: `render.yaml` is the blueprint, `build.sh` the build step. Push to GitHub, choose **New > Blueprint** in Render, and
+the sign-in page of the deployed site lists the demo users. The step-by-step guide, what the free plan limits, how it was checked
+(the suite passes on PostgreSQL 16) and what to change before a real launch are in **[docs/Deployment.md](docs/Deployment.md)**.
+
+Production settings are read from the environment: `DJANGO_DEBUG=false` turns on HTTPS-only cookies and redirects, hashed static
+files (WhiteNoise) and logging to the console; `DATABASE_URL` selects PostgreSQL; `DEMO_MODE` and `DEMO_DATA` make a demo site.
+`manage.py seed --demo --complaints` loads twelve demo complaints in every state.
+
 ## PDF report, audit pack and import of past complaints
 
 **PDF report.** Every complaint has a **PDF report** button: the whole record in one document for filing and for FSSC and ISO
@@ -98,6 +109,7 @@ Taken from the running app with the demo data (`docs/img/`, made by `tools/scree
 
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
 | Dashboard, the complaint log and its Excel file, with the filter row and the phone view | `50` to `56` |
+| The demo site: the sign-in page that lists the demo users, and sending due reminders from the Notifications page | `67` to `70` |
 | PDF report, audit pack and the import of past complaints: the Import page, a file with mistakes, the corrected file, the result, an imported complaint, three pages of the PDF report, the phone view | `57` to `66` |
 | Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
@@ -111,13 +123,14 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 227 automated tests should pass. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 248 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 
 ## Settings by environment variable
 
-`DJANGO_DEBUG`, `DJANGO_SECRET_KEY` (required when debug is off), `DJANGO_ALLOWED_HOSTS`,
+`DJANGO_DEBUG`, `DJANGO_SECRET_KEY` (required when debug is off), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`,
+`DATABASE_URL`,
 `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_HOST` / `POSTGRES_PORT`,
 `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS`,
 `DEFAULT_FROM_EMAIL`. Without `EMAIL_HOST`, emails are printed to the console.

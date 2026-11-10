@@ -7,6 +7,8 @@ environment variables; the defaults suit local development.
 import os
 from pathlib import Path
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -23,6 +25,15 @@ if not SECRET_KEY:
     SECRET_KEY = "dev-only-insecure-key"
 
 ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+# Render tells the app its own address; trust it without any setting.
+if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
+if os.environ.get("RENDER_EXTERNAL_URL"):
+    CSRF_TRUSTED_ORIGINS.append(os.environ["RENDER_EXTERNAL_URL"])
+
+# A public demo: the sign-in page lists the demo users and their shared password.
+DEMO_MODE = env_bool("DEMO_MODE", False)
 
 
 INSTALLED_APPS = [
@@ -48,6 +59,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+if not DEBUG:
+    # Serves the CSS and scripts that `collectstatic` gathered. In development the staticfiles app does it.
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
@@ -61,6 +76,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "complaints.context.navigation",
+                "complaints.context.demo",
             ],
         },
     },
@@ -76,8 +92,10 @@ DATABASES = {
     }
 }
 
-# Switch to PostgreSQL in production by setting DATABASE_URL-style variables.
-if os.environ.get("POSTGRES_DB"):
+# PostgreSQL in production: either one DATABASE_URL (what Render provides) or the POSTGRES_* variables.
+if os.environ.get("DATABASE_URL"):
+    DATABASES["default"] = dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=60)
+elif os.environ.get("POSTGRES_DB"):
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ["POSTGRES_DB"],
@@ -110,6 +128,16 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"  # `manage.py collectstatic` gathers the files here
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        # Hashed, compressed file names in production; plain files while developing and testing.
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if DEBUG
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -117,7 +145,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 ATTACHMENT_MAX_MB = int(os.environ.get("ATTACHMENT_MAX_MB", "10"))
 
 # The address people use to reach the platform, used for the links in emails.
-SITE_URL = os.environ.get("SITE_URL", "http://127.0.0.1:8000").rstrip("/")
+SITE_URL = (os.environ.get("SITE_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "http://127.0.0.1:8000").rstrip("/")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -133,3 +161,24 @@ if os.environ.get("EMAIL_HOST"):
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "complaints@example.com")
+
+
+# Behind a proxy that ends HTTPS (Render, a load balancer, Nginx) the app is told the original scheme.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SSL_REDIRECT", True)
+    SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]  # the platform's health check is plain HTTP
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Turn HSTS on (for example 31536000) once HTTPS has been working for a while: browsers remember it.
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "0"))
+
+# Errors go to the console, where the host (Render, Docker, systemd) collects them. Without this, Django
+# sends server errors only to ADMINS by email, so a failure would leave no trace in the logs.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "root": {"handlers": ["console"], "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO")},
+}

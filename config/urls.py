@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
+from django.http import HttpResponse
 from django.urls import path
 
 from complaints import views as complaint_views
@@ -11,9 +12,11 @@ admin.site.site_header = "BEST Group Complaint Platform administration"
 admin.site.site_title = "Complaint Platform admin"
 
 urlpatterns = [
+    path("healthz/", lambda request: HttpResponse("ok", content_type="text/plain"), name="healthz"),
     path("", complaint_views.home, name="home"),
     path("help/", complaint_views.help_page, name="help"),
     path("notifications/", complaint_views.notification_log, name="notifications"),
+    path("notifications/run-reminders/", complaint_views.run_reminders, name="run_reminders"),
     path("dashboard/", reports.dashboard, name="dashboard"),
     path("log/", reports.complaint_log, name="complaint_log"),
     path("log/export/", reports.log_export, name="log_export"),

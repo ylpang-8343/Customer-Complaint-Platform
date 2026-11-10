@@ -2,10 +2,11 @@
 
     python manage.py seed           # factories, complaint types, lab tests, MR permissions
     python manage.py seed --demo    # also one demo user per role and a PIC list for each factory
+    python manage.py seed --demo --complaints   # and twelve demo complaints in every state (a demo site)
 """
 
 from django.contrib.auth.models import Group, Permission
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.models import COORDINATOR_GROUP, Factory, FactoryPIC, Role, User
@@ -50,15 +51,23 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--demo", action="store_true", help="Also create demo users (fictional data).")
+        parser.add_argument("--complaints", action="store_true", help="With --demo: also create twelve demo complaints.")
 
     @transaction.atomic
-    def handle(self, *args, demo=False, **options):
+    def handle(self, *args, demo=False, complaints=False, **options):
+        if complaints and not demo:
+            raise CommandError("--complaints needs --demo: the demo complaints are lodged by the demo users.")
         self.seed_factories()
         self.seed_complaint_types()
         self.seed_lab_tests_and_methods()
         self.seed_coordinator_group()
         if demo:
             self.seed_demo_users()
+        if complaints:
+            from complaints.demo import create_demo_complaints
+
+            made = create_demo_complaints()
+            self.stdout.write(f"{made} demo complaints created." if made else "Demo complaints skipped: the database already has complaints.")
         self.stdout.write(self.style.SUCCESS("Seed complete."))
 
     def seed_factories(self):

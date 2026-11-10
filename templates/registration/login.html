@@ -14,5 +14,21 @@
       <button class="button primary" type="submit">Sign in</button>
     </form>
   </section>
+  {% if demo_mode %}
+  <section class="card login-card demo-card">
+    <h2>Demo site</h2>
+    <p>This is a demonstration with fictional data. Sign in with any of these users, all with the password <strong>{{ demo_password }}</strong>:</p>
+    <table class="list">
+      <tbody>
+        <tr><td><code>sales</code></td><td>Lodger: raises complaints</td></tr>
+        <tr><td><code>mr</code></td><td>Coordinator (MR): assigns, closes, Settings, Import</td></tr>
+        <tr><td><code>fa.pic</code>, <code>fa.lab</code></td><td>PIC and laboratory, Factory A</td></tr>
+        <tr><td><code>fa.hod</code>, <code>fa.fm</code></td><td>HOD and Factory Manager, Factory A</td></tr>
+        <tr><td><code>management</code></td><td>Top management: sees every factory</td></tr>
+      </tbody>
+    </table>
+    <p class="footnote">Files and changes may be reset when the demo is redeployed. Use no real data.</p>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

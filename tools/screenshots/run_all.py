@@ -23,6 +23,7 @@ SCRIPTS = [
     ("reminders.py", "Reminders and notifications (44-49)"),
     ("reports.py", "Dashboard, complaint log, Excel export (50-56)"),
     ("documents.py", "Import of past complaints, PDF report, audit pack (57-66)"),
+    ("deployment.py", "Demo site sign-in page, send reminders from the page (67-70)"),
 ]
 
 

@@ -255,6 +255,9 @@ button:disabled, .button:disabled { opacity: .55; cursor: not-allowed; }
 .login-brand .logo-chip { background: var(--side-bg); color: var(--logo); }
 .login-card { width: min(24rem, 92vw); margin: 0; }
 .login-card h1 { font-size: 1.15rem; margin-bottom: 1rem; color: var(--brown); }
+.demo-card { margin-top: 1rem; font-size: .85rem; }
+.demo-card h2 { font-size: 1rem; color: var(--brown); margin-bottom: .5rem; }
+.demo-card table td { padding: .35rem .4rem; }
 
 /* Narrow screens: the sidebar becomes a bar across the top */
 @media (max-width: 52rem) {

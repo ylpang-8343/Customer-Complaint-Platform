@@ -13,7 +13,7 @@ from accounts.models import Role
 
 from . import people, rules, workflow
 from .progress import progress
-from . import emails
+from . import emails, reminders
 from .forms import ComplaintFilterForm, ComplaintForm, NotificationFilterForm
 from .help_content import GUIDE_FOR_ROLE, GUIDES, TASKS
 from .models import Attachment, Complaint, ComplaintType, NotificationLog
@@ -251,5 +251,26 @@ def notification_log(request):
             "filters": filters,
             "querystring": query.urlencode(),
             "failed": NotificationLog.objects.filter(success=False).count(),
+            "can_run_reminders": people.is_coordinator(request.user),
+            "due_count": len(reminders.due_reminders()) if people.is_coordinator(request.user) else 0,
         },
     )
+
+
+@login_required
+@require_POST
+def run_reminders(request):
+    """Send the reminders that are due now: the same as `manage.py send_reminders`, for hosts with no scheduler."""
+    if not people.is_coordinator(request.user):
+        messages.error(request, "Only the Coordinator can send the reminders.")
+        return redirect("home")
+    results = reminders.send_due_reminders()
+    sent = sum(1 for item in results if item["sent"])
+    failed = len(results) - sent
+    if not results:
+        messages.info(request, "No reminders are due.")
+    else:
+        messages.success(request, f"{sent} reminder{'' if sent == 1 else 's'} sent.")
+    if failed:
+        messages.warning(request, f"{failed} could not be sent. See the failed emails below; they are tried again next time.")
+    return redirect("notifications")

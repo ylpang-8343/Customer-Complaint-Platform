@@ -8,6 +8,16 @@
   <div class="kpi bad"><b>{{ failed }}</b><span>Failed in total (not delivered)</span></div>
 </div>
 
+{% if can_run_reminders %}
+<section class="card">
+  <form method="post" action="{% url 'run_reminders' %}" class="inline-form">
+    {% csrf_token %}
+    <p><strong>{{ due_count }}</strong> reminder{{ due_count|pluralize }} {{ due_count|pluralize:"is,are" }} due now. Reminders normally go out once a day (<code>manage.py send_reminders</code>); use the button on a host that has no scheduler, or to send them at once.</p>
+    <button type="submit" class="button primary"{% if not due_count %} disabled{% endif %}>Send due reminders now</button>
+  </form>
+</section>
+{% endif %}
+
 <section class="card">
   <h2 class="section-title">Emails sent by the platform</h2>
 

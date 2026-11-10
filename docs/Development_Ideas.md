@@ -1,7 +1,7 @@
 # Group Customer Complaint Platform: Development Ideas
 
 Source: `FINAL_Customer_Complaint_Platform_Proposal.pdf` (draft of 3 November 2026, prepared by YL Pang).
-Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow), 4 (reminders and notification log), 5 (dashboard and complaint log) and 6 (PDF report and import of past complaints) of Section 7 are done; see the README for how to run it.
+Status: ideas for review. Build steps 1 (foundation), 2 (lodging), 3 (workflow), 4 (reminders and notification log), 5 (dashboard and complaint log), 6 (PDF report and import of past complaints) and 7 (tests and demo data) of Section 7 are done, so the Phase 1 build is complete; see the README for how to run it.
 
 ## 1. Approach
 
@@ -111,7 +111,7 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 4. **Reminders and notification log (done).**
 5. **Dashboard and complaint log (done)** with Excel export.
 6. **PDF export and import (done):** the PDF report and audit pack, and the 6-month historical import from a spreadsheet template.
-7. **Tests and demo data** (see Section 9).
+7. **Tests and demo data (done):** 227 automated tests, the fictional demo users from `seed --demo`, and the demo complaints and browser checks in `tools/screenshots/`. See `docs/TestGuide.md`.
 
 ## 8. Gaps in the proposal and assumed handling
 
@@ -148,6 +148,8 @@ Valid/Invalid is stored separately from the stage, so the dashboard can show "Va
 | Step 6: what an imported complaint becomes. | A new platform reference in date order (the running numbers carry on), with the old number kept in "Number in the previous log". The person who received it is the name in the old log, never the importing Coordinator. The stage comes from the dates (closing date: Closed; reply date: Customer Response Sent; any investigation or decision: PIC investigation; otherwise Submitted). A reply or closing date needs Valid or invalid, so the dashboard classes stay right. |
 | Step 6: how the import is controlled. | Coordinator only. The file is checked first and nothing is saved until it has no errors and the Coordinator confirms; then every row is saved together or none. A row older than 6 months is a warning, not an error. A date in the future, an unknown factory, type, sub-type or choice, a bad email, a number used twice for a factory, and a deleted row without a reason are errors. Up to 2000 rows and 5 MB. No emails are sent. |
 | Step 6: reminders for imported complaints. | An imported complaint that is still open starts its reminder clock at the import, not at its old issue date, so importing does not send a flood of reminders. Aging on the dashboard still counts from the old issue date. |
+| Deployment: where the demo runs. | Render's free plan (a free web service and a free PostgreSQL database), from `render.yaml`. The free plan sleeps when idle, expires the database after 30 days, has no persistent disk (uploaded files are lost on restart) and has no scheduler: reminders are sent from a button on the Notifications page. See `docs/Deployment.md`. |
+| Deployment: settings. | Everything comes from the environment: `DJANGO_DEBUG=false` turns on HTTPS-only cookies and redirect, WhiteNoise for the static files and logging to the console; `DATABASE_URL` selects PostgreSQL. The suite was run on PostgreSQL 16 as well as SQLite. A real launch still needs the items in section 6 of `docs/Deployment.md` (mail, backups, file storage, scheduler, password reset, sign-in lockout). |
 | PDF summary. | A short summary PDF is attached to the email that assigns PICs (as the proposal says). The full PDF report for audits is separate (step 6). |
 
 ## 9. Quality and risks

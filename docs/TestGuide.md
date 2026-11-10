@@ -64,7 +64,7 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
 They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 227 passed.** Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 248 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
@@ -78,6 +78,7 @@ They take about two minutes (the PDF and import tests are the slowest) and use a
 | `tests/test_reminders.py` | 23 | The notification log (including failures), when reminders are due and to whom, repeats, per-type days, deputies, retry after a failure, the Overdue flags |
 | `tests/test_reports.py` | 28 | Dashboard figures and filters, scope by role, the log columns, the Excel file (columns, dates, summary, scope, formula-like text) |
 | `tests/test_report_pdf.py` | 13 | The PDF report (every section, page numbers, laboratory section only with a sample, deleted banner, unsupported characters, very long text, who may download) and the audit pack (contents, duplicate file names, missing files) |
+| `tests/test_deploy.py` | 21 | Putting it on a host: the settings read from the environment (production mode, `DATABASE_URL`, Render's address, HTTPS and cookies), the health check, the demo sign-in page, `seed --demo --complaints`, sending reminders from the page, an administrator from the environment, and the Render files |
 | `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
@@ -418,6 +419,19 @@ Expected: each row becomes a complaint with a new reference (for example `FA/202
 
 - [ ] Pass
 
+### K. The demo site (after deploying on Render)
+
+**T32 A deployed demo** (any browser, a phone too)
+1. Follow [Deployment.md](Deployment.md) and open the address Render gives. Wait for a sleeping service to wake (up to a minute).
+2. Check the sign-in page, then sign in as `mr`: Dashboard, Notifications, **Send due reminders now**, a complaint's **PDF report** and **Audit pack**, **Export to Excel**, and **Assign PICs** on a Submitted complaint. Then sign in as `fb.pic`.
+3. Open `http://` instead of `https://`, and `/healthz/`.
+
+Expected: the sign-in page lists the demo users and the shared password. The Dashboard counts 12 complaints. Notifications lists the demo emails and says some reminders are due; the button sends them and then none are due. The PDF, the zip and the Excel file download. `fb.pic` sees only Factory B. `http://` is sent to `https://`, `/healthz/` says `ok`. After the service restarts, files attached during the demo are gone, and the pages say so instead of failing.
+
+![Demo sign-in](img/67-login-demo.png) ![Reminders from the page](img/68-notifications-send-reminders.png) ![On a phone](img/70-mobile-login-demo.png)
+
+- [ ] Pass
+
 ## 5. Which scenario tests which part of the proposal
 
 | Proposal | Scenarios |
@@ -436,6 +450,7 @@ Expected: each row becomes a complaint with a new reference (for example `FA/202
 | Dashboard and complaint log | T22, T23 |
 | PDF report and audit pack (FSSC, ISO) | T27, T28 |
 | Upload of past complaints | T29, T30, T31 |
+| Running the demo on a host | T32 |
 | Access by role and factory | T02, T06, T11, T22, T23 |
 | Progress and history | T16 |
 
@@ -455,7 +470,7 @@ pip install playwright openpyxl pypdfium2 pillow   # in any Python environment; 
 python tools\screenshots\run_all.py
 ```
 
-It runs six scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
+It runs seven scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
 
 | Script | Images |
 |---|---|
@@ -465,6 +480,7 @@ It runs six scripts one after the other, prints how many screenshots were saved 
 | `reminders.py` | 44 to 49 |
 | `reports.py` | 50 to 56 |
 | `documents.py` | 57 to 66 (the import, the PDF report and the audit pack) |
+| `deployment.py` | 67 to 70 (the demo sign-in page, sending reminders from the page) |
 
 ## 8. Not covered
 
@@ -478,4 +494,4 @@ It runs six scripts one after the other, prints how many screenshots were saved 
 
 | Date | Tester | Version or commit | Automated tests | Manual scenarios passed | Notes |
 |---|---|---|---|---|---|
-| | | | | / 31 | |
+| | | | | / 32 | |
