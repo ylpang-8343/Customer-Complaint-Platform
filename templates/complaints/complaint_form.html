@@ -32,61 +32,7 @@
     </div>
   </section>
 
-  <section class="card">
-    <h2 class="section-title"><span class="badge">B</span> Complaint</h2>
-    <div class="grid">
-      {% include "complaints/_field.html" with field=form.buyer %}
-      {% include "complaints/_field.html" with field=form.contract_number %}
-      {% include "complaints/_field.html" with field=form.product_name %}
-      {% include "complaints/_field.html" with field=form.delivery_date %}
-      {% include "complaints/_field.html" with field=form.do_reference %}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="section-title"><span class="badge">C</span> Packing and quantity</h2>
-    <div class="grid">
-      {% include "complaints/_field.html" with field=form.packing_type %}
-      {% include "complaints/_field.html" with field=form.pack_size %}
-      {% include "complaints/_field.html" with field=form.affected_quantity %}
-      {% include "complaints/_field.html" with field=form.quantity_unit %}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="section-title"><span class="badge">D</span> Transport</h2>
-    <div class="grid">
-      {% include "complaints/_field.html" with field=form.transport_type %}
-      {% include "complaints/_field.html" with field=form.vessel_name %}
-      {% include "complaints/_field.html" with field=form.vehicle_number %}
-      {% include "complaints/_field.html" with field=form.container_number %}
-      {% include "complaints/_field.html" with field=form.loading_port %}
-      {% include "complaints/_field.html" with field=form.discharge_port %}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="section-title"><span class="badge">E</span> What went wrong</h2>
-    <div class="grid">
-      {% include "complaints/_field.html" with field=form.complaint_type %}
-      {% include "complaints/_field.html" with field=form.complaint_sub_type %}
-      {% include "complaints/_field.html" with field=form.type_details %}
-      {% include "complaints/_field.html" with field=form.sample_sent %}
-      {% include "complaints/_field.html" with field=form.description span=True %}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="section-title"><span class="badge">F</span> Contact at the buyer</h2>
-    <div class="grid">
-      {% include "complaints/_field.html" with field=form.contact_person %}
-      {% include "complaints/_field.html" with field=form.contact_email %}
-      {% include "complaints/_field.html" with field=form.contact_phone %}
-      {% include "complaints/_field.html" with field=form.contact_fax %}
-      {% include "complaints/_field.html" with field=form.complaint_method %}
-    </div>
-    <p class="footnote">The reply to the customer is sent by email, so the email address is mandatory.</p>
-  </section>
+  {% include "complaints/_form_body.html" %}
 
   <section class="card">
     <h2 class="section-title"><span class="badge">G</span> Supporting documents and pictures</h2>

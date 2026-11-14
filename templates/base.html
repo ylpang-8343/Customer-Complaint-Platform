@@ -17,6 +17,7 @@
       <a href="{% url 'dashboard' %}"{% if nav_current == 'dashboard' %} class="active" aria-current="page"{% endif %}>Dashboard</a>
       <a href="{% url 'complaint_log' %}"{% if nav_current == 'log' %} class="active" aria-current="page"{% endif %}>Complaint log</a>
       {% if user.role == "coordinator" or user.role == "management" %}<a href="{% url 'notifications' %}"{% if nav_current == 'notifications' %} class="active" aria-current="page"{% endif %}>Notifications</a>{% endif %}
+      {% if user.role == "coordinator" %}<a href="{% url 'masterdata_home' %}"{% if nav_current == 'masterdata' %} class="active" aria-current="page"{% endif %}>Master data</a>{% endif %}
       {% if user.role == "coordinator" %}<a href="{% url 'import_home' %}"{% if nav_current == 'import' %} class="active" aria-current="page"{% endif %}>Import</a>{% endif %}
       <a href="{% url 'help' %}"{% if nav_current == 'help' %} class="active" aria-current="page"{% endif %}>Help</a>
       {% if user.is_staff %}<a href="{% url 'admin:index' %}">Settings</a>{% endif %}

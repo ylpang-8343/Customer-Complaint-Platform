@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Master data{% endblock %}
+{% block page_title %}Master Data — Customer Complaints{% endblock %}
+{% block scope %}Coordinator — the lists the complaint form chooses from. Upload a list so a name is never typed twice or mistyped.{% endblock %}
+{% block content %}
+<p>The complaint form offers these lists instead of free text. Download the template, fill in one row for each entry and upload it. A row whose code is already in the list <strong>updates</strong> that entry; a new one is <strong>added</strong>. Nothing is deleted: set <em>Active</em> to No to stop a name being offered (old complaints keep it). The file is checked first and saved all together (up to {{ max_rows }} rows, {{ max_mb }} MB; .xlsx or .csv).</p>
+
+{% for card in cards %}
+<section class="card">
+  <h2 class="section-title"><span class="badge">{{ forloop.counter }}</span> {{ card.dataset.title }}
+    <span class="total-chip">{{ card.active }} active of {{ card.total }}</span>
+  </h2>
+  <p>{{ card.dataset.help }}</p>
+  {% if card.upload_error %}<div class="alert error" role="alert">{{ card.upload_error }}</div>{% endif %}
+  {% if card.errors %}
+  <div class="alert error" role="alert"><strong>Nothing was saved.</strong> Fix these in the file and upload it again:</div>
+  <div class="table-wrap">
+    <table class="list">
+      <thead><tr><th class="num">Row</th><th>Problem</th></tr></thead>
+      <tbody>{% for row, message in card.errors %}<tr><td class="num">{{ row }}</td><td>{{ message }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% if card.more_errors %}<p class="footnote">{{ card.more_errors }} more problems are not shown.</p>{% endif %}
+  {% endif %}
+  <form method="post" action="{% url 'masterdata_upload' card.dataset.slug %}" enctype="multipart/form-data" class="master-upload">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".xlsx,.csv" required aria-label="File to upload for {{ card.dataset.title }}">
+    <button type="submit" class="button primary">Upload and save</button>
+    <a class="button" href="{% url 'masterdata_template' card.dataset.slug %}">Download the template</a>
+    <a class="button" href="{% url card.admin_url %}">Edit single entries</a>
+  </form>
+</section>
+{% endfor %}
+{% endblock %}

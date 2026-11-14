@@ -244,7 +244,7 @@ def test_with_nobody_set_up_the_coordinator_is_told(as_user, user_of):
     from accounts.models import User
 
     complaint = at_hod(as_user, user_of)
-    User.objects.filter(username="fa.hod").update(is_active=False)
+    User.objects.filter(role="hod", factory__code="FA").update(is_active=False)  # every HOD of the factory
     mail.outbox.clear()
     results = reminders.send_due_reminders(later(complaint, 3))
     assert results[0]["sent"] and recipients(mail.outbox[0]) == {"mr@example.com"}

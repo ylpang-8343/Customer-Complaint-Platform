@@ -14,6 +14,7 @@ from django.utils import timezone
 from accounts.access import scope_to_user
 
 from . import rules
+from . import rules as rules_module
 
 DEFAULT_REMINDER_DAYS = 3  # proposal section 4: a reminder after 3 days unless the type says otherwise
 
@@ -85,6 +86,85 @@ class ComplaintMethod(models.Model):
         return self.name
 
 
+class RoutingRule(models.Model):
+    """Which department investigates a kind of complaint (the routing table). The Coordinator keeps it in Settings.
+
+    A rule for a complaint type may say "any transport" or be split by local delivery and shipment (Logistic and
+    Documentation go to Operation for a local delivery and to Shipping for a shipment). A type with no rule, such as
+    Others, is left to the Coordinator.
+    """
+
+    class Scope(models.TextChoices):
+        ANY = "any", "Any transport"
+        LOCAL = "local", "Local delivery"
+        SHIPMENT = "shipment", "Shipment"
+
+    complaint_type = models.ForeignKey(ComplaintType, on_delete=models.CASCADE, related_name="routing_rules")
+    scope = models.CharField(max_length=10, choices=Scope.choices, default=Scope.ANY)
+    department = models.ForeignKey("accounts.Department", on_delete=models.PROTECT, related_name="routing_rules")
+
+    class Meta:
+        ordering = ["complaint_type__sort_order", "scope"]
+        constraints = [models.UniqueConstraint(fields=["complaint_type", "scope"], name="one_rule_per_type_and_scope")]
+
+    def __str__(self):
+        return f"{self.complaint_type} ({self.get_scope_display()}) \u2192 {self.department}"
+
+    @classmethod
+    def department_for(cls, complaint):
+        """The department the routing table sends this complaint to, or None (the Coordinator decides)."""
+        if complaint.complaint_type_id is None:
+            return None
+        rules = {rule.scope: rule for rule in cls.objects.filter(complaint_type_id=complaint.complaint_type_id).select_related("department")}
+        transport = complaint.transport_type
+        specific = None
+        if transport:
+            specific = cls.Scope.LOCAL if rules_module.is_local(transport) else cls.Scope.SHIPMENT
+        rule = rules.get(specific) or rules.get(cls.Scope.ANY)
+        return rule.department if rule else None
+
+
+class Customer(models.Model):
+    """A buyer or party the group deals with. The Coordinator keeps the list (or uploads it), so a name is never typed twice."""
+
+    code = models.CharField(max_length=30, unique=True)
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name", "code"]
+
+    def __str__(self):
+        return f"{self.code} \u2013 {self.name}"
+
+
+class Product(models.Model):
+    """A product with its code or SKU. The Coordinator keeps the list (or uploads it)."""
+
+    code = models.CharField("Product code / SKU", max_length=30, unique=True)
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name", "code"]
+
+    def __str__(self):
+        return f"{self.code} \u2013 {self.name}"
+
+
+class PackSize(models.Model):
+    """A pack size, for example 'Drum 200 L'. The Coordinator keeps the list (or uploads it)."""
+
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class ReferenceCounter(models.Model):
     """The last running number used for a factory in a year (FA/2026/0001, FA/2026/0002, ...)."""
 
@@ -97,6 +177,23 @@ class ReferenceCounter(models.Model):
 
     def __str__(self):
         return f"{self.factory.code}/{self.year}: {self.last_number}"
+
+
+DESCRIPTION_PARTS = (
+    ("issue_identified", "Issue identified"),
+    ("customer_findings", "Customer findings"),
+    ("customer_test_result", "Customer test result"),
+    ("customer_request", "Customer request"),
+    ("description_others", "Others"),
+)
+
+
+def compose_description(complaint):
+    """The parts of the description as one text. A description that is only the issue is just that text."""
+    parts = [(label, getattr(complaint, name).strip()) for name, label in DESCRIPTION_PARTS if getattr(complaint, name).strip()]
+    if len(parts) == 1 and parts[0][0] == "Issue identified":
+        return parts[0][1]
+    return "\n\n".join(f"{label}: {text}" for label, text in parts)
 
 
 class ComplaintQuerySet(models.QuerySet):
@@ -184,11 +281,23 @@ class Complaint(models.Model):
     factory = models.ForeignKey(
         "accounts.Factory", null=True, on_delete=models.PROTECT, related_name="complaints"
     )
+    # The customer, product and pack size are chosen from the lists the Coordinator keeps; the name is also stored
+    # on the complaint, so the record reads the same if the list changes later or the complaint came from an import.
+    customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="complaints")
     buyer = models.CharField("Buyer / party involved", max_length=200, blank=True)
     contract_number = models.CharField(max_length=100, blank=True)
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name="complaints")
     product_name = models.CharField(max_length=200, blank=True)
+    received_date = models.DateField(
+        "Complaint received date", null=True, blank=True,
+        help_text="The day the customer told us. Response time and ageing are counted from it.",
+    )  # fmt: skip
+    # The delivery date of a local delivery; a shipment has a loading date and a discharge date instead.
     delivery_date = models.DateField(null=True, blank=True)
+    loading_date = models.DateField(null=True, blank=True)
+    discharge_date = models.DateField(null=True, blank=True)
     packing_type = models.CharField(max_length=10, choices=PackingType.choices, blank=True)
+    pack_size_option = models.ForeignKey(PackSize, null=True, blank=True, on_delete=models.PROTECT, related_name="complaints")
     pack_size = models.CharField(
         max_length=100, blank=True, help_text="For example drum, flexibag or carton."
     )
@@ -204,7 +313,14 @@ class Complaint(models.Model):
     container_number = models.CharField(max_length=50, blank=True)
     loading_port = models.CharField(max_length=100, blank=True)
     discharge_port = models.CharField("Port of discharge / final destination", max_length=100, blank=True)
-    description = models.TextField("Description of complaint", blank=True)
+    # The description is written in parts. ``description`` is made from them (see compose_description), so the
+    # emails, the PDF and the log keep reading one text.
+    issue_identified = models.TextField(blank=True)
+    customer_findings = models.TextField(blank=True)
+    customer_test_result = models.TextField(blank=True)
+    customer_request = models.TextField(blank=True)
+    description_others = models.TextField("Others", blank=True)
+    description = models.TextField("Description of complaint", blank=True, editable=False)
     complaint_type = models.ForeignKey(
         ComplaintType, null=True, blank=True, on_delete=models.PROTECT, related_name="complaints"
     )
@@ -240,6 +356,10 @@ class Complaint(models.Model):
     )
     acknowledged_at = models.DateTimeField(null=True, blank=True, editable=False)
     coordinator_remarks = models.TextField("Remarks", blank=True)
+    # The department that investigates it: set by the routing table, or by the Coordinator when assigning.
+    department = models.ForeignKey(
+        "accounts.Department", null=True, blank=True, on_delete=models.SET_NULL, related_name="complaints", editable=False
+    )
     cause = models.CharField(max_length=10, choices=Cause.choices, blank=True)
     hod_decision = models.CharField(max_length=10, choices=HodDecision.choices, blank=True)
     hod_reason = models.TextField("Reason it is invalid", blank=True)
@@ -293,6 +413,19 @@ class Complaint(models.Model):
         return "Deleted" if self.is_deleted else self.get_status_display()
 
     @property
+    def opened_on(self):
+        """The day the complaint was received, for response time and ageing."""
+        return self.received_date or timezone.localtime(self.submitted_at or self.created_at).date()
+
+    @property
+    def days_open(self):
+        """Days since the complaint was received; for a closed complaint, how many days it took. None for a draft or a deleted one."""
+        if self.is_draft or self.is_deleted:
+            return None
+        end = timezone.localtime(self.status_changed_at).date() if self.status == self.Status.CLOSED else timezone.localdate()
+        return max(0, (end - self.opened_on).days)
+
+    @property
     def reminder_days(self):
         return self.complaint_type.reminder_days if self.complaint_type_id else DEFAULT_REMINDER_DAYS
 
@@ -324,10 +457,20 @@ class Complaint(models.Model):
         """Clear fields that no longer apply after a change of choice."""
         if self.packing_type != rules.PACK:
             self.pack_size = ""
-        opened = rules.TRANSPORT_FIELDS.get(self.transport_type, ())
+            self.pack_size_option = None
+        # With no transport type chosen nothing is cleared (an imported complaint may only have a date).
+        opened = rules.TRANSPORT_FIELDS.get(self.transport_type, rules.ALL_TRANSPORT_FIELDS)
         for name in rules.ALL_TRANSPORT_FIELDS:
             if name not in opened:
-                setattr(self, name, "")
+                setattr(self, name, None if name in rules.DATE_FIELDS else "")
+        # The names chosen from the lists are copied onto the complaint.
+        if self.customer_id:
+            self.buyer = self.customer.name
+        if self.product_id:
+            self.product_name = self.product.name
+        if self.pack_size_option_id:
+            self.pack_size = self.pack_size_option.name
+        self.description = compose_description(self)
         if self.complaint_type_id is None or (
             self.complaint_sub_type_id and self.complaint_sub_type.complaint_type_id != self.complaint_type_id
         ):

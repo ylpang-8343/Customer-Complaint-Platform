@@ -32,6 +32,10 @@ if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
 if os.environ.get("RENDER_EXTERNAL_URL"):
     CSRF_TRUSTED_ORIGINS.append(os.environ["RENDER_EXTERNAL_URL"])
 
+# A submitted complaint goes straight to the PICs of the department the routing table names (and the Coordinator is
+# copied). Turn it off to have every complaint wait for the Coordinator to assign it.
+AUTO_ASSIGN = env_bool("AUTO_ASSIGN", True)
+
 # A public demo: the sign-in page lists the demo users and their shared password.
 DEMO_MODE = env_bool("DEMO_MODE", False)
 

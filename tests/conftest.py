@@ -9,6 +9,12 @@ def fast_password_hashing(settings):
 
 
 @pytest.fixture(autouse=True)
+def no_auto_assign_unless_asked(settings):
+    # Most tests walk a complaint through the Coordinator's assignment. Tests of the routing turn this on.
+    settings.AUTO_ASSIGN = False
+
+
+@pytest.fixture(autouse=True)
 def temporary_media(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path / "media"
 

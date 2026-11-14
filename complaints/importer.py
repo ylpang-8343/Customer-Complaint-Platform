@@ -38,6 +38,8 @@ from .models import (
     ComplaintSubType,
     ComplaintType,
     Complaint,
+    Customer,
+    Product,
     ComplaintEvent,
     CustomerReply,
     ImportBatch,
@@ -76,10 +78,15 @@ COLUMNS = [
     Column("legacy_reference", "Complaint no. in the old log", "text", False, "The number it had before the platform. Kept for tracing. Must not be used twice for a factory.", "FA-043", 16, 60),
     Column("lodger", "Complaint received by", "text", False, "Name of the person who received it, as in the old log.", "A. Tan", 20, 100),
     Column("issue_date", "Issue date", "datetime", True, "When the complaint was lodged. A date alone is taken as 09:00. Not in the future.", "2026-08-14", 16),
-    Column("buyer", "Complaint from", "text", True, "Buyer or party involved.", "Example Buyer Ltd", 26, 200),
+    Column("received_date", "Complaint received date", "date", False, "The day the customer told us. If empty, the issue date is used. Not in the future.", "2026-08-13", 16),
+    Column("buyer", "Complaint from", "text", True, "Buyer or party involved. May be empty when a Customer code is given.", "Example Buyer Ltd", 26, 200),
+    Column("customer_code", "Customer code", "text", False, "The code in the customer list. If given it must exist in the list; the customer's name is then used.", "C0001", 14, 30),
     Column("contract_number", "Contract number", "text", False, "", "SC-000123", 16, 100),
     Column("product_name", "Product", "text", False, "", "Refined oil", 20, 200),
-    Column("delivery_date", "Delivery date", "date", False, "", "2026-08-01", 14),
+    Column("product_code", "Product code", "text", False, "The code (SKU) in the product list. If given it must exist in the list.", "P0001", 14, 30),
+    Column("delivery_date", "Delivery date", "date", False, "The delivery date of a local delivery. Not in the future.", "2026-08-01", 14),
+    Column("loading_date", "Loading date", "date", False, "For a shipment. Not in the future.", "2026-07-20", 14),
+    Column("discharge_date", "Discharge date", "date", False, "For a shipment. Not in the future.", "2026-08-01", 14),
     Column("packing_type", "Packing type", "choice", False, "Bulk or Pack.", "Pack", 12, choices="packing"),
     Column("pack_size", "Pack size", "text", False, "For Pack: drum, flexibag, carton...", "Flexibag", 14, 100),
     Column("affected_quantity", "Affected quantity", "decimal", False, "A number, with the unit in the next column.", "20", 12),
@@ -316,6 +323,8 @@ class Lookups:
         self.types = {_norm(t.name): t for t in ComplaintType.objects.all()}
         self.sub_types = {(s.complaint_type_id, _norm(s.name)): s for s in ComplaintSubType.objects.all()}
         self.methods = {_norm(m.name): m for m in ComplaintMethod.objects.all()}
+        self.customers = {_norm(c.code): c for c in Customer.objects.all()}
+        self.products = {_norm(p.code): p for p in Product.objects.all()}
         self.transport = {_norm(label): value for value, label in Complaint.TransportType.choices}
         self.packing = {_norm(label): value for value, label in PACKING.items()} | {_norm(k): k for k in PACKING}
         self.existing_legacy = {
@@ -447,15 +456,32 @@ def _check_row(number, raw, lookups, seen, today):
     values["issue_at"] = _aware(issue) if issue else None
     if issue and issue.date() < today - SIX_MONTHS:
         row.warnings.append("The issue date is more than 6 months ago.")
-    values["buyer"] = text("buyer")
+    # The customer and the product may be given by their code in the lists the Coordinator keeps.
+    values["customer"] = values["product"] = None
+    code = text("customer_code")
+    if code:
+        if _norm(code) in lookups.customers:
+            values["customer"] = lookups.customers[_norm(code)]
+        else:
+            error("customer_code", f"'{code}' is not in the customer list.")
+    values["buyer"] = text("buyer") or (values["customer"].name if values["customer"] else "")
     if not values["buyer"]:
-        error("buyer", "This is needed.")
+        error("buyer", "Give the buyer (Complaint from) or a Customer code.")
+    code = text("product_code")
+    if code:
+        if _norm(code) in lookups.products:
+            values["product"] = lookups.products[_norm(code)]
+        else:
+            error("product_code", f"'{code}' is not in the product list.")
     for key in ("contract_number", "product_name", "pack_size", "vessel_name", "vehicle_number", "container_number",
                 "loading_port", "discharge_port", "type_details", "do_reference", "contact_person", "contact_phone", "contact_fax"):  # fmt: skip
         values[key] = text(key)
     values["description"] = text("description")
-    delivered = date("delivery_date")
-    values["delivery_date"] = delivered.date() if delivered else None
+    for key in ("delivery_date", "loading_date", "discharge_date"):
+        day = date(key)
+        values[key] = day.date() if day else None
+    received = date("received_date")
+    values["received_date"] = received.date() if received else (issue.date() if issue else None)
 
     packing = _norm(raw.get("packing_type"))
     values["packing_type"] = ""
@@ -593,7 +619,9 @@ def _create(row, batch, user, now):
     else:
         changed = now  # an open complaint starts its reminder clock at the import
     complaint = Complaint(
-        lodged_by=user, lodger_department="", factory=v["factory"], buyer=v["buyer"],
+        lodged_by=user, lodger_department="", factory=v["factory"], buyer=v["buyer"], customer=v["customer"],
+        product=v["product"], received_date=v["received_date"], loading_date=v["loading_date"],
+        discharge_date=v["discharge_date"], issue_identified=v["description"],
         contract_number=v["contract_number"], product_name=v["product_name"], delivery_date=v["delivery_date"],
         packing_type=v["packing_type"], pack_size=v["pack_size"], affected_quantity=v["affected_quantity"],
         quantity_unit=v["quantity_unit"], transport_type=v["transport_type"], vessel_name=v["vessel_name"],

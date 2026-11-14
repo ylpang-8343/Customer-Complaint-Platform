@@ -7,19 +7,28 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from accounts.models import Factory, FactoryPIC, User
 from complaints import workflow
-from complaints.models import Attachment, Complaint, ComplaintMethod, ComplaintSubType, ComplaintType, LabTest
+from complaints.models import (
+    Attachment, Complaint, ComplaintMethod, ComplaintSubType, ComplaintType, Customer, LabTest, PackSize, Product,
+)
+
+today = datetime.date.today()
+ago = lambda days: today - datetime.timedelta(days=days)  # the platform accepts no date in the future
 
 mr, sales = User.objects.get(username="mr"), User.objects.get(username="sales")
 pic, lab, hod, fm = (User.objects.get(username=name) for name in ("fa.pic", "fa.lab", "fa.hod", "fa.fm"))
 factory = Factory.objects.get(code="FA")
 
 c = Complaint(
-    lodged_by=sales, lodger_department="Sales", factory=factory, buyer="Example Buyer Ltd", contract_number="SC-000123",
-    product_name="Refined palm oil", delivery_date=datetime.date(2026, 10, 20), packing_type="pack", pack_size="Flexibag",
+    lodged_by=sales, lodger_department="Sales", factory=factory, contract_number="SC-000123",
+    customer=Customer.objects.get(code="C0001"), product=Product.objects.get(code="P0002"),
+    pack_size_option=PackSize.objects.get(name="Flexibag"), received_date=ago(14),
+    loading_date=ago(40), discharge_date=ago(16), packing_type="pack",
     affected_quantity=20, quantity_unit="mt", transport_type="shipment_container", vessel_name="MV Example",
     container_number="ABCD1234567", loading_port="Example Loading Port", discharge_port="Example Discharge Port",
-    description=("Flexibag leaked during discharge at the receiving terminal. The customer reports a loss of about two "
-                 "tons of product and has sent photographs of the damaged flexibag and the container floor. " * 2),
+    issue_identified="Flexibag leaked during discharge at the receiving terminal.",
+    customer_findings="A loss of about two tons of product; photographs of the damaged flexibag and the container floor were sent.",
+    customer_test_result="The buyer's own test of the remaining oil showed a free fatty acid of 0.5%.",
+    customer_request="A credit note for the lost product and a written explanation.",
     complaint_type=ComplaintType.objects.get(name="Packaging"),
     complaint_sub_type=ComplaintSubType.objects.get(name="Packaging - Leaking"), sample_sent=True,
     do_reference="DO-5521", contact_person="Sample Contact", contact_email="contact@example.com",
@@ -44,7 +53,7 @@ workflow.save_investigation(
     conclusion="The leak was caused by a defective weld at the supplier, not by our filling or loading.",
 )
 workflow.save_lab(
-    c, lab, datetime.date(2026, 11, 2), "Both samples are within specification except for FFA.",
+    c, lab, ago(12), "Both samples are within specification except for FFA.",
     {LabTest.objects.get(name="FFA"): ("0.42%", "0.44%"), LabTest.objects.get(name="M&I"): ("2.1", "2.0"),
      LabTest.objects.get(name="Colour"): ("Pale", "Pale")},
     [SimpleUploadedFile("lab-report.pdf", b"%PDF-1.4 demo")],
@@ -64,6 +73,6 @@ workflow.fm_decide(c, fm, True, "Approved. Thank you for the quick turnaround.")
 from complaints import texts  # the reply is the standard template, as the PIC would see it
 
 workflow.send_reply(c, pic, texts.reply_subject(c), texts.reply_message(c, pic), [SimpleUploadedFile("test-report.pdf", b"%PDF-1.4 demo")])
-workflow.save_verification(c, mr, datetime.date(2026, 12, 1), "No repeat of the leak in the next two shipments.", datetime.date(2027, 3, 1), "Supplier audit completed.")
+workflow.save_verification(c, mr, ago(6), "No repeat of the leak in the next two shipments.", ago(2), "Supplier audit completed.")
 workflow.close_case(c, mr, "Corrective action effective.")
 print("created", c.reference, c.pk)

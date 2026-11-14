@@ -1,5 +1,5 @@
 <div class="field{% if field.errors %} has-error{% endif %}{% if span %} span-2{% endif %}" data-field="{{ field.name }}">
-  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.name in mandatory %} <span class="req" title="Mandatory before submitting">*</span>{% endif %}</label>
+  <label for="{{ field.id_for_label }}"{% if local_label %} data-label-default="{{ field.label }}" data-label-local="{{ local_label }}"{% endif %}>{{ field.label }}{% if field.name in mandatory %} <span class="req" title="Mandatory before submitting">*</span>{% endif %}</label>
   {{ field }}
   {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
   {% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}

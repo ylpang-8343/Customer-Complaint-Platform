@@ -100,7 +100,7 @@ try:
         shot(page, "51-dashboard-filtered", full=False)
 
         # The complaint log
-        page.goto(BASE + "/log/")
+        page.goto(BASE + "/log/?page_size=25")  # ten rows a page to start with
         headers = [h.strip().lower() for h in page.locator("table.log thead th").all_inner_texts()]
         check("log columns are those of the current log", headers[1] == "customer complaint no." and headers[-1] == "reason delete" and not any("car" in h.split() for h in headers))
         check("log lists twelve rows", page.locator("table.log tbody tr").count() == 12)
@@ -117,7 +117,7 @@ try:
         check("download is named for today", re.fullmatch(r"complaint-log-\d{4}-\d{2}-\d{2}\.xlsx", download.value.suggested_filename) is not None)
         sheet = load_workbook(path)["Complaint log"]
         check("Excel has the log headers and twelve rows", sheet.cell(1, 2).value == "Customer complaint no." and sheet.cell(13, 2).value and sheet.cell(14, 2).value is None)
-        check("Excel keeps real dates", sheet.cell(2, 5).is_date)
+        check("Excel keeps real dates", sheet.cell(2, 6).is_date)
         print("excel summary:", [(sheet.cell(r, 2).value, sheet.cell(r, 3).value) for r in range(15, 23)])
         ctx.close()
 

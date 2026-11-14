@@ -24,6 +24,7 @@ SCRIPTS = [
     ("reports.py", "Dashboard, complaint log, Excel export (50-56)"),
     ("documents.py", "Import of past complaints, PDF report, audit pack (57-66)"),
     ("deployment.py", "Demo site sign-in page, send reminders from the page (67-70)"),
+    ("feedback.py", "Feedback of the demo: routing, master data, columns, dashboard, reply file (71-79)"),
 ]
 
 

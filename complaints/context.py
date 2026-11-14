@@ -14,6 +14,8 @@ def navigation(request):
         return {"nav_current": "new"}
     if name in ("notifications", "run_reminders", "send_test_email", "dashboard"):
         return {"nav_current": name}
+    if name in ("masterdata_home", "masterdata_template", "masterdata_upload"):
+        return {"nav_current": "masterdata"}
     if name in ("import_home", "import_template", "import_preview"):
         return {"nav_current": "import"}
     if name in ("complaint_log", "log_export"):

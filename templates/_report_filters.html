@@ -4,6 +4,13 @@
   {% endif %}
   <div><label for="{{ form.date_from.id_for_label }}">Lodged from</label>{{ form.date_from }}</div>
   <div><label for="{{ form.date_to.id_for_label }}">Lodged to</label>{{ form.date_to }}</div>
+  <div><label for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}</div>
+  <div><label for="{{ form.complaint_type.id_for_label }}">Complaint category</label>{{ form.complaint_type }}</div>
+  <div><label for="{{ form.customer.id_for_label }}">Buyer</label>{{ form.customer }}</div>
+  <div><label for="{{ form.product.id_for_label }}">Product</label>{{ form.product }}</div>
+  <div><label for="{{ form.decision.id_for_label }}">Result</label>{{ form.decision }}</div>
+  <div class="grow"><label for="{{ form.q.id_for_label }}">Search</label>{{ form.q }}</div>
+  <div><label for="{{ form.page_size.id_for_label }}">{{ form.page_size.label }}</label>{{ form.page_size }}</div>
   <button class="button primary" type="submit">Apply</button>
   <a class="button" href="{{ reset_url }}">Reset</a>
 </form>

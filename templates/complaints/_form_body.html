@@ -1,0 +1,64 @@
+{# Sections B to F of the complaint form. A buyer, product or pack size comes from a list once the list has entries. #}
+  <section class="card">
+    <h2 class="section-title"><span class="badge">B</span> Complaint</h2>
+    <div class="grid">
+      {% if form.customer %}{% include "complaints/_field.html" with field=form.customer %}{% else %}{% include "complaints/_field.html" with field=form.buyer %}{% endif %}
+      {% include "complaints/_field.html" with field=form.contract_number %}
+      {% if form.product %}{% include "complaints/_field.html" with field=form.product %}{% else %}{% include "complaints/_field.html" with field=form.product_name %}{% endif %}
+      {% include "complaints/_field.html" with field=form.do_reference %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">C</span> Packing and quantity</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.packing_type %}
+      {% if form.pack_size_option %}{% include "complaints/_field.html" with field=form.pack_size_option %}{% else %}{% include "complaints/_field.html" with field=form.pack_size %}{% endif %}
+      {% include "complaints/_field.html" with field=form.affected_quantity %}
+      {% include "complaints/_field.html" with field=form.quantity_unit %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">D</span> Transport</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.transport_type %}
+      {% include "complaints/_field.html" with field=form.vessel_name %}
+      {% include "complaints/_field.html" with field=form.vehicle_number %}
+      {% include "complaints/_field.html" with field=form.container_number %}
+      {% include "complaints/_field.html" with field=form.loading_port local_label="Place of loading" %}
+      {% include "complaints/_field.html" with field=form.discharge_port local_label="Destination" %}
+      {% include "complaints/_field.html" with field=form.loading_date %}
+      {% include "complaints/_field.html" with field=form.discharge_date %}
+      {% include "complaints/_field.html" with field=form.delivery_date %}
+    </div>
+    <p class="footnote">A shipment has a loading date and a discharge date; a local delivery has a delivery date. No date can be in the future.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">E</span> What went wrong</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.complaint_type %}
+      {% include "complaints/_field.html" with field=form.complaint_sub_type %}
+      {% include "complaints/_field.html" with field=form.type_details %}
+      {% include "complaints/_field.html" with field=form.sample_sent %}
+      {% include "complaints/_field.html" with field=form.issue_identified span=True %}
+      {% include "complaints/_field.html" with field=form.customer_findings span=True %}
+      {% include "complaints/_field.html" with field=form.customer_test_result span=True %}
+      {% include "complaints/_field.html" with field=form.customer_request span=True %}
+      {% include "complaints/_field.html" with field=form.description_others span=True %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title"><span class="badge">F</span> Buyer contact</h2>
+    <div class="grid">
+      {% include "complaints/_field.html" with field=form.contact_person %}
+      {% include "complaints/_field.html" with field=form.contact_email %}
+      {% include "complaints/_field.html" with field=form.contact_phone %}
+      {% include "complaints/_field.html" with field=form.contact_fax %}
+      {% include "complaints/_field.html" with field=form.complaint_method %}
+      {% include "complaints/_field.html" with field=form.received_date %}
+    </div>
+    <p class="footnote">The reply to the customer is sent by email, so the email address is mandatory. Response time and ageing are counted from the complaint received date.</p>
+  </section>

@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.access import factories_for
 from accounts.models import Factory
@@ -17,7 +18,10 @@ from .models import (
     ComplaintMethod,
     ComplaintSubType,
     ComplaintType,
+    Customer,
     NotificationLog,
+    PackSize,
+    Product,
 )
 
 
@@ -57,6 +61,9 @@ class DataSelect(forms.Select):
         return option
 
 
+PAGE_SIZES = (10, 25, 50, 100)  # complaints on a page; the first is the default
+
+
 class ComplaintFilterForm(forms.Form):
     """The filter bar above the list of complaints."""
 
@@ -66,16 +73,38 @@ class ComplaintFilterForm(forms.Form):
     status = forms.ChoiceField(
         required=False, choices=[("", "All statuses"), *Complaint.Status.choices, ("deleted", "Deleted")]
     )
+    complaint_type = forms.ModelChoiceField(
+        queryset=ComplaintType.objects.all(), required=False, empty_label="All categories", label="Complaint category"
+    )
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.all(), required=False, empty_label="All buyers", label="Buyer"
+    )
+    product = forms.ModelChoiceField(queryset=Product.objects.all(), required=False, empty_label="All products")
     mine = forms.BooleanField(required=False, label="Waiting for my action")
     overdue = forms.BooleanField(required=False, label="Overdue")
     date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     q = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": "Reference, buyer, product, contract..."}))
+    page_size = forms.ChoiceField(
+        required=False, choices=[(str(n), f"{n} per page") for n in PAGE_SIZES], initial=str(PAGE_SIZES[0]), label="Show"
+    )
+
+    def per_page(self):
+        """How many complaints on a page: 10 unless the user chose another size."""
+        value = self.cleaned_data.get("page_size") if hasattr(self, "cleaned_data") else ""
+        return int(value) if value else PAGE_SIZES[0]
 
     def apply(self, queryset, waiting_for_me=None):
         data = self.cleaned_data
         if data.get("factory"):
             queryset = queryset.filter(factory=data["factory"])
+        if data.get("complaint_type"):
+            queryset = queryset.filter(complaint_type=data["complaint_type"])
+        if data.get("customer"):
+            # An imported complaint has the name only, so the name counts as well as the link.
+            queryset = queryset.filter(Q(customer=data["customer"]) | Q(buyer=data["customer"].name))
+        if data.get("product"):
+            queryset = queryset.filter(Q(product=data["product"]) | Q(product_name=data["product"].name))
         if data.get("status") == "deleted":
             queryset = queryset.filter(deleted_at__isnull=False)
         elif data.get("status"):
@@ -101,22 +130,81 @@ class ComplaintFilterForm(forms.Form):
 
 
 class ReportFilterForm(forms.Form):
-    """The one filter row above the dashboard and the complaint log: factories and the lodged period."""
+    """The filter row above the dashboard, the complaint log and the Excel export.
+
+    The factories and the lodged period decide the scope; the rest narrow the complaints further. The export
+    uses the same filters, so the file holds what the screen shows.
+    """
 
     factories = forms.ModelMultipleChoiceField(
         queryset=Factory.objects.none(), required=False, widget=forms.CheckboxSelectMultiple, label="Factories"
     )
     date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    status = forms.ChoiceField(
+        required=False,
+        choices=[("", "All statuses"), *[(v, l) for v, l in Complaint.Status.choices if v != "draft"], ("deleted", "Deleted")],
+    )
+    complaint_type = forms.ModelChoiceField(
+        queryset=ComplaintType.objects.all(), required=False, empty_label="All categories", label="Complaint category"
+    )
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.all(), required=False, empty_label="All buyers", label="Buyer"
+    )
+    product = forms.ModelChoiceField(queryset=Product.objects.all(), required=False, empty_label="All products")
+    decision = forms.ChoiceField(
+        required=False,
+        label="Result",
+        choices=[("", "Any result"), ("valid", "Valid"), ("invalid", "Invalid"), ("undecided", "Under investigation")],
+    )
+    q = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": "Reference, buyer, product..."}))
+    page_size = forms.ChoiceField(
+        required=False, choices=[(str(n), f"{n} per page") for n in PAGE_SIZES], initial=str(PAGE_SIZES[0]), label="Show"
+    )
 
     def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["factories"].queryset = factories_for(user)
 
+    def _data(self):
+        return getattr(self, "cleaned_data", {}) if self.is_bound else {}
+
     def scope(self):
         """(factories, date from, date to). A bad date is ignored; the form shows the error."""
-        data = getattr(self, "cleaned_data", {}) if self.is_bound else {}
+        data = self._data()
         return list(data.get("factories") or []), data.get("date_from"), data.get("date_to")
+
+    def per_page(self, default=PAGE_SIZES[0]):
+        value = self._data().get("page_size")
+        return int(value) if value else default
+
+    def refine(self, queryset):
+        """The scoped complaints narrowed by status, category, buyer, product, result and the search text."""
+        data = self._data()
+        if data.get("status") == "deleted":
+            queryset = queryset.filter(deleted_at__isnull=False)
+        elif data.get("status"):
+            queryset = queryset.filter(status=data["status"], deleted_at__isnull=True)
+        if data.get("complaint_type"):
+            queryset = queryset.filter(complaint_type=data["complaint_type"])
+        if data.get("customer"):
+            queryset = queryset.filter(Q(customer=data["customer"]) | Q(buyer=data["customer"].name))
+        if data.get("product"):
+            queryset = queryset.filter(Q(product=data["product"]) | Q(product_name=data["product"].name))
+        decision = data.get("decision")
+        if decision == "undecided":
+            queryset = queryset.filter(hod_decision="", deleted_at__isnull=True)
+        elif decision:
+            queryset = queryset.filter(hod_decision=decision, deleted_at__isnull=True)
+        if data.get("q"):
+            text = data["q"].strip()
+            queryset = queryset.filter(
+                Q(reference__icontains=text)
+                | Q(buyer__icontains=text)
+                | Q(product_name__icontains=text)
+                | Q(contract_number__icontains=text)
+            )
+        return queryset
 
     def clean(self):
         cleaned = super().clean()
@@ -160,6 +248,9 @@ class NotificationFilterForm(forms.Form):
         return queryset
 
 
+DATE_FIELDS = ("received_date", "loading_date", "discharge_date", "delivery_date")
+
+
 class ComplaintForm(forms.ModelForm):
     attachments = MultipleFileField(required=False, label="Supporting documents and pictures")
     # Yes / No / not chosen, because a draft may leave it open.
@@ -175,11 +266,14 @@ class ComplaintForm(forms.ModelForm):
         model = Complaint
         fields = [
             "factory",
+            "customer",
             "buyer",
             "contract_number",
+            "product",
             "product_name",
-            "delivery_date",
+            "do_reference",
             "packing_type",
+            "pack_size_option",
             "pack_size",
             "affected_quantity",
             "quantity_unit",
@@ -189,21 +283,44 @@ class ComplaintForm(forms.ModelForm):
             "container_number",
             "loading_port",
             "discharge_port",
-            "description",
+            "loading_date",
+            "discharge_date",
+            "delivery_date",
             "complaint_type",
             "complaint_sub_type",
             "type_details",
             "sample_sent",
-            "do_reference",
+            "issue_identified",
+            "customer_findings",
+            "customer_test_result",
+            "customer_request",
+            "description_others",
             "contact_person",
             "contact_email",
             "contact_phone",
             "contact_fax",
             "complaint_method",
+            "received_date",
         ]
+        labels = {
+            "loading_port": "From (loading port / city)",
+            "discharge_port": "To (discharge port / city)",
+            "issue_identified": "Issue identified",
+            "customer_findings": "Customer findings",
+            "customer_test_result": "Customer test result",
+            "customer_request": "Customer request",
+            "description_others": "Others",
+            "customer": "Buyer / party involved",
+            "product": "Product",
+            "pack_size_option": "Pack size",
+        }
         widgets = {
-            "delivery_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "description": forms.Textarea(attrs={"rows": 5}),
+            **{name: forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d") for name in DATE_FIELDS},
+            "issue_identified": forms.Textarea(attrs={"rows": 3}),
+            "customer_findings": forms.Textarea(attrs={"rows": 3}),
+            "customer_test_result": forms.Textarea(attrs={"rows": 3}),
+            "customer_request": forms.Textarea(attrs={"rows": 3}),
+            "description_others": forms.Textarea(attrs={"rows": 3}),
             "affected_quantity": forms.NumberInput(attrs={"step": "any", "min": "0"}),
             "complaint_type": DataSelect(),
             "complaint_sub_type": DataSelect(),
@@ -228,9 +345,30 @@ class ComplaintForm(forms.ModelForm):
             for s in sub_types
         }
 
+        # Buyer, product and pack size are chosen from the lists the Coordinator keeps, so a name is never typed twice.
+        # Before a list has been filled in, the name can be typed instead.
+        self._list_or_text("customer", Customer, "buyer")
+        self._list_or_text("product", Product, "product_name")
+        self._list_or_text("pack_size_option", PackSize, "pack_size")
+
+        # A complaint is lodged after the event, so a date cannot be in the future.
+        today = timezone.localdate().isoformat()
+        for name in DATE_FIELDS:
+            self.fields[name].widget.attrs["max"] = today
+
         # The reference number carries the factory code, so the factory is fixed once it exists.
         if self.instance.reference:
             self.lock_factory()
+
+    def _list_or_text(self, choice_name, model, text_name):
+        """Keep the drop-down of a list when the list has entries, otherwise the plain text field."""
+        current = getattr(self.instance, f"{choice_name}_id", None)
+        options = model.objects.filter(Q(is_active=True) | Q(pk=current))
+        if options.exists():
+            self.fields[choice_name].queryset = options
+            del self.fields[text_name]
+        else:
+            del self.fields[choice_name]
 
     def lock_factory(self):
         self.fields["factory"].disabled = True
@@ -242,11 +380,39 @@ class ComplaintForm(forms.ModelForm):
         complaint_type, sub_type = cleaned.get("complaint_type"), cleaned.get("complaint_sub_type")
         if sub_type and complaint_type and sub_type.complaint_type_id != complaint_type.pk:
             self.add_error("complaint_sub_type", "This sub-type does not belong to the complaint type.")
+
+        # The names the mandatory check looks at: the one chosen from a list, else the text already on the complaint.
+        for choice_name, text_name in (("customer", "buyer"), ("product", "product_name"), ("pack_size_option", "pack_size")):
+            if choice_name in self.fields:
+                chosen = cleaned.get(choice_name)
+                cleaned[text_name] = chosen.name if chosen else getattr(self.instance, text_name, "")
+
+        # No date in the future, and only the dates of the chosen transport type count.
+        today = timezone.localdate()
+        relevant = ("received_date", *rules.TRANSPORT_FIELDS.get(cleaned.get("transport_type"), ()))
+        for name in relevant:
+            value = cleaned.get(name)
+            if name in DATE_FIELDS and value and value > today:
+                self.add_error(name, "The date cannot be in the future.")
+        loading, discharge = cleaned.get("loading_date"), cleaned.get("discharge_date")
+        if "loading_date" in relevant and loading and discharge and discharge < loading:
+            self.add_error("discharge_date", "The discharge date is before the loading date.")
         return cleaned
 
     def missing_mandatory(self):
         """Mandatory fields still empty, judged on the cleaned data (used when submitting)."""
         return rules.missing_mandatory(self.cleaned_data.get)
+
+    # A mandatory name that is chosen from a list in the form: the error is shown on the list.
+    LIST_FOR_NAME = {"buyer": "customer", "product_name": "product", "pack_size": "pack_size_option"}
+
+    def add_missing_errors(self, missing):
+        for name, message in missing.items():
+            target = name if name in self.fields else self.LIST_FOR_NAME.get(name)
+            if target in self.fields:
+                self.add_error(target, message)
+            else:
+                self.add_error(None, f"{name}: {message}")
 
     @transaction.atomic
     def save_draft(self, user):

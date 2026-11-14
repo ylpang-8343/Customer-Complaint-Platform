@@ -2,6 +2,8 @@
 
 from django.utils import formats, timezone
 
+from . import rules
+
 
 def _date(value):
     return formats.date_format(value, "j M Y") if value else ""
@@ -27,6 +29,10 @@ def summary_sections(complaint):
     complaint_type = " / ".join(
         part for part in (str(c.complaint_type or ""), str(c.complaint_sub_type or "")) if part
     )
+    local = rules.is_local(c.transport_type)
+    # The code comes from the list the buyer or product was chosen from; an older complaint has the name only.
+    buyer = str(c.customer) if c.customer_id else c.buyer
+    product = str(c.product) if c.product_id else c.product_name
 
     sections = [
         (
@@ -43,10 +49,9 @@ def summary_sections(complaint):
         (
             "Complaint",
             [
-                ("Buyer / party involved", c.buyer),
+                ("Buyer / party involved", buyer),
                 ("Contract number", c.contract_number),
-                ("Product", c.product_name),
-                ("Delivery date", _date(c.delivery_date)),
+                ("Product", product),
                 ("Packing", packing),
                 ("Affected quantity", quantity),
                 ("Complaint type", complaint_type),
@@ -62,19 +67,34 @@ def summary_sections(complaint):
                 ("Vessel", c.vessel_name),
                 ("Vehicle", c.vehicle_number),
                 ("Container", c.container_number),
-                ("Loading port", c.loading_port),
-                ("Port of discharge / final destination", c.discharge_port),
+                ("Place of loading" if local else "From (loading port / city)", c.loading_port),
+                ("Destination" if local else "To (discharge port / city)", c.discharge_port),
+                *(
+                    [("Delivery date", _date(c.delivery_date))]
+                    if local
+                    else [("Loading date", _date(c.loading_date)), ("Discharge date", _date(c.discharge_date))]
+                ),
             ],
         ),
-        ("Description", [("Description of complaint", c.description)]),
         (
-            "Contact at the buyer",
+            "Description",
+            [
+                ("Issue identified", c.issue_identified),
+                ("Customer findings", c.customer_findings),
+                ("Customer test result", c.customer_test_result),
+                ("Customer request", c.customer_request),
+                ("Others", c.description_others),
+            ],
+        ),
+        (
+            "Buyer contact",
             [
                 ("Contact person", c.contact_person),
                 ("Email", c.contact_email),
                 ("Telephone", c.contact_phone),
                 ("Fax", c.contact_fax),
                 ("Complaint method", str(c.complaint_method or "")),
+                ("Complaint received date", _date(c.received_date)),
             ],
         ),
     ]

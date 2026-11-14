@@ -15,6 +15,20 @@ class Role(models.TextChoices):
     FM = "fm", "Factory Manager"
     COORDINATOR = "coordinator", "Coordinator (MR)"
     MANAGEMENT = "management", "Top management"
+    TRADER = "trader", "Trader / commercial"
+
+
+class Department(models.Model):
+    """A department that investigates complaints (QA, Production, Operation, Shipping). Complaints are routed by it."""
+
+    name = models.CharField(max_length=60, unique=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
 
 
 class Factory(models.Model):
@@ -64,6 +78,22 @@ class User(AbstractUser):
     away_until = models.DateField(
         null=True, blank=True, help_text="The user is treated as away up to and including this date."
     )
+    assigned_factories = models.ManyToManyField(
+        Factory,
+        blank=True,
+        related_name="assigned_users",
+        help_text="More factories this user covers, besides the one above: a trader who handles customers of "
+        "several factories, or a group PIC (for example Shipping) who handles all of them.",
+    )
+    dept = models.ForeignKey(
+        Department,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="users",
+        verbose_name="Department (for routing)",
+        help_text="The department a PIC or HOD belongs to. A complaint routed to a department goes to its PICs and HOD.",
+    )
 
     class Meta:
         ordering = ["username"]
@@ -73,7 +103,8 @@ class User(AbstractUser):
 
     def clean(self):
         super().clean()
-        if self.role in FACTORY_ROLES and not self.factory_id:
+        # A new factory user needs a factory; one who already covers several factories may leave this empty.
+        if self.role in FACTORY_ROLES and not self.factory_id and not (self.pk and self.assigned_factories.exists()):
             raise ValidationError({"factory": "This role belongs to a factory."})
         if self.role in GROUP_ROLES and self.factory_id:
             raise ValidationError({"factory": "Group-level roles do not belong to a factory."})
@@ -83,6 +114,13 @@ class User(AbstractUser):
     @property
     def sees_all_factories(self):
         return self.is_superuser or self.role in GROUP_ROLES
+
+    def factory_ids(self):
+        """The factories this user covers: their own and the ones assigned to them (empty for a group-level user)."""
+        ids = set(self.assigned_factories.values_list("pk", flat=True)) if self.pk else set()
+        if self.factory_id:
+            ids.add(self.factory_id)
+        return ids
 
     def is_away(self, today=None):
         today = today or timezone.localdate()
@@ -97,6 +135,8 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         # The MR maintains the drop-down lists in the admin site, so the Coordinator is staff.
         # Other staff (IT administrators) are superusers.
+        if self.dept_id and not self.department:
+            self.department = self.dept.name
         if not self.is_superuser:
             self.is_staff = self.role == Role.COORDINATOR
         super().save(*args, **kwargs)
@@ -115,6 +155,8 @@ class User(AbstractUser):
 # Roles that always belong to one factory, and roles that see the whole group.
 FACTORY_ROLES = {Role.PIC, Role.LAB, Role.HOD, Role.FM}
 GROUP_ROLES = {Role.COORDINATOR, Role.MANAGEMENT}
+# Roles that see the complaints of their factories only (one factory, or several assigned ones).
+FACTORY_SCOPED_ROLES = FACTORY_ROLES | {Role.TRADER}
 
 
 class FactoryPIC(models.Model):
@@ -128,6 +170,14 @@ class FactoryPIC(models.Model):
         limit_choices_to={"role__in": [Role.PIC, Role.LAB]},
     )
     designation = models.CharField(max_length=100, help_text="For example Lab PIC or Lab manager.")
+    department = models.ForeignKey(
+        Department,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pic_entries",
+        help_text="A complaint routed to this department is assigned to its PICs of the factory.",
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -144,5 +194,5 @@ class FactoryPIC(models.Model):
 
     def clean(self):
         super().clean()
-        if self.user_id and self.factory_id and self.user.factory_id != self.factory_id:
-            raise ValidationError({"user": "The user belongs to a different factory."})
+        if self.user_id and self.factory_id and self.factory_id not in self.user.factory_ids():
+            raise ValidationError({"user": "The user does not cover this factory. Assign the factory to the user first."})

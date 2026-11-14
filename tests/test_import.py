@@ -314,7 +314,8 @@ def test_imported_complaints_appear_in_the_dashboard_the_log_and_the_report(as_u
     body = log.split("<tbody>")[1].split("</tbody>")[0]
     assert "A. Tan" in body and "Not recorded" in body and "Sample Coordinator" not in body  # never the importer
     sheet = load_workbook(io.BytesIO(client.get(reverse("log_export")).content))["Complaint log"]
-    assert sheet.cell(row=2, column=4).value == "A. Tan"
+    columns = {cell.value: cell.column for cell in sheet[1]}
+    assert sheet.cell(row=2, column=columns["Complaint received by"]).value == "A. Tan"
     c = Complaint.objects.get(legacy_reference="OLD-1")
     page = client.get(reverse("complaint_detail", args=[c.pk])).content.decode()
     assert "Imported from the previous log" in page and "OLD-1" in page and "A. Tan" in page
@@ -366,7 +367,7 @@ def test_every_kind_of_mistake_is_reported_with_its_row_and_column(as_user):
         10: ("Reason delete", "reason for deleting"), 11: ("Email", "is not an email address"),
         12: ("Affected quantity", "is not a number"), 13: ("Unit", "is not Metric Ton or Kg"),
         14: ("Packing type", "is not Bulk or Pack"), 15: ("Transport type", "four transport types"),
-        16: ("Complaint from", "This is needed"), 17: ("Complaint from", "Too long"),
+        16: ("Complaint from", "Give the buyer"), 17: ("Complaint from", "Too long"),
         18: ("Sample sent to factory", "is not Yes or No"), 19: ("Complaint method", "is not a complaint method"),
         20: ("Date case closed", "is not a date"),
     }  # fmt: skip

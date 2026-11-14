@@ -10,6 +10,8 @@ import re
 from django.conf import settings
 from django.utils import formats
 
+from . import rules
+
 EN_DASH = "–"
 COMPLAINT_SUMMARY_LIMIT = 500  # characters of the description quoted in the reply
 
@@ -60,8 +62,8 @@ def _quantity(complaint):
 
 
 def _complaint_summary(complaint):
-    """The description on one line, as the 'Complaint' line of the shipment details."""
-    text = re.sub(r"\s+", " ", complaint.description or "").strip()
+    """What the issue is, on one line, as the 'Complaint' line of the shipment details."""
+    text = re.sub(r"\s+", " ", complaint.issue_identified or complaint.description or "").strip()
     if len(text) > COMPLAINT_SUMMARY_LIMIT:
         text = text[:COMPLAINT_SUMMARY_LIMIT].rstrip() + " ..."
     return text or str(complaint.complaint_sub_type or complaint.complaint_type or "")
@@ -70,15 +72,21 @@ def _complaint_summary(complaint):
 def _shipment_lines(complaint):
     """The bullet list of the shipment. Only what the complaint records is listed."""
     c = complaint
+    local = rules.is_local(c.transport_type)
+    dates = (
+        [("Delivery Date", _date(c.delivery_date))]
+        if local
+        else [("Loading Date", _date(c.loading_date)), ("Discharge Date", _date(c.discharge_date))]
+    )
     items = [
         ("Product", c.product_name),
         ("Quantity", _quantity(c)),
         ("Vessel", c.vessel_name),
         ("Vehicle", c.vehicle_number),
         ("Container", c.container_number),
-        ("Delivery Date", _date(c.delivery_date)),
-        ("Loading Port", c.loading_port),
-        ("Port of Discharge", c.discharge_port),
+        *dates,
+        ("Place of Loading" if local else "Loading Port", c.loading_port),
+        ("Destination" if local else "Port of Discharge", c.discharge_port),
         ("Contract No.", c.contract_number),
         ("Complaint", _complaint_summary(c)),
     ]

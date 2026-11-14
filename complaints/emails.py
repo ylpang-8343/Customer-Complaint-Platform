@@ -151,12 +151,22 @@ def notify_coordinator_of_submission(complaint):
 
 # Step 3
 def notify_pics_of_assignment(complaint, assigned_users, coordinator, remarks=""):
+    """Email the PICs. ``coordinator`` is None when the routing table assigned the complaint: the Coordinator is then copied."""
+    if coordinator is None:
+        intro = (
+            f"This customer complaint was assigned to you automatically: it is a {complaint.complaint_type} complaint "
+            f"for the {complaint.department} department. The Coordinator is copied and can reassign it if it belongs to "
+            "another department. A PDF summary is attached."
+        )
+    else:
+        intro = f"{coordinator} has assigned this customer complaint to you. A PDF summary is attached."
     return _notice(
         Kind.ASSIGNED,
         complaint,
         f"Customer complaint {complaint.reference} assigned to you for investigation",
-        f"{coordinator} has assigned this customer complaint to you. A PDF summary is attached.",
+        intro,
         _addresses(assigned_users),
+        cc=_addresses(people.coordinators()) if coordinator is None else (),
         comment=remarks,
         comment_label="Remarks from the Coordinator",
         attach_summary=True,

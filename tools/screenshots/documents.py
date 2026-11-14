@@ -135,14 +135,14 @@ try:
         check("the template has the instructions, the sheet and the lists", book.sheetnames == ["Instructions", "Complaints", "Lists"])
         headers = [cell.value for cell in book["Complaints"][1]]
         # the order of the importer's columns, by key, so the script does not need the project's code
-        order = ["factory", "legacy_reference", "lodger", "issue_date", "buyer", "contract_number", "product_name", "delivery_date",
-                 "packing_type", "pack_size", "affected_quantity", "quantity_unit", "transport_type", "vessel_name", "vehicle_number",
+        order = ["factory", "legacy_reference", "lodger", "issue_date", "received_date", "buyer", "customer_code", "contract_number",
+                 "product_name", "product_code", "delivery_date", "loading_date", "discharge_date", "packing_type", "pack_size", "affected_quantity", "quantity_unit", "transport_type", "vessel_name", "vehicle_number",
                  "container_number", "loading_port", "discharge_port", "description", "complaint_type", "complaint_sub_type",
                  "type_details", "sample_sent", "do_reference", "contact_person", "contact_email", "contact_phone", "contact_fax",
                  "complaint_method", "lab_date", "ims_date", "ims_remarks", "root_cause", "correction", "corrective_action",
                  "reply_date", "hod_decision", "hod_reason", "first_verified", "second_verified", "closed_date", "remarks",
                  "deleted", "deleted_reason"]
-        check("the template has the 44 columns", len(headers) == len(order) == 44)
+        check("the template has the 49 columns", len(headers) == len(order) == 49)
         KEYS.update(dict(zip(order, headers)))
 
         bad_rows = [dict(r) for r in GOOD_ROWS]
@@ -211,7 +211,7 @@ try:
         print("audit pack:", *names, sep="\n   ")
         check("the audit pack holds the report, the SCAR, the reply and the documents",
               any(n.endswith("-report.pdf") for n in names) and any("/scar/SCAR-" in n for n in names)
-              and any(n.endswith("reply-to-customer.txt") for n in names) and any(n.endswith("lab-report.pdf") for n in names)
+              and any("/reply/Reply-" in n and n.endswith(".pdf") for n in names) and any(n.endswith("lab-report.pdf") for n in names)
               and any(n.endswith("leak-photo.png") for n in names))
         ctx.close()
 

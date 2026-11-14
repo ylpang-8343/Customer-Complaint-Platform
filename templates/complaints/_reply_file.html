@@ -1,0 +1,7 @@
+{# The reply to the customer is kept as a document: open it from here instead of reading the whole email on the page. #}
+<ul class="files">
+  <li>
+    <a href="{% url 'complaint_reply_pdf' complaint.pk %}">Reply to customer — {{ reply.subject }}.pdf</a>
+    <span class="muted">PDF · the email as it was sent</span>
+  </li>
+</ul>

@@ -1,7 +1,8 @@
 """Step 4 in a real browser: age two complaints, run the reminder job (once with a broken mail server,
 then normally), and look at the list, the complaint and the notification log."""
-import os
 import re
+import datetime
+import os
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,20 @@ LOG = SCRATCH / "server4.log"
 
 
 
+
+def ago(days):
+    """A date in the past: the form does not accept a date in the future."""
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+
+
+def choose(page, name, text):
+    """Pick the entry of a list (customer, product, pack size) whose label contains the text."""
+    value = page.eval_on_selector_all(
+        f"select[name={name}] option", "(els, t) => (els.find(e => e.textContent.includes(t)) || {}).value", text
+    )
+    page.select_option(f"select[name={name}]", value=value)
+
+
 def reset_demo_database():
     """Start from an empty database with the reference data and the demo users, and no uploaded files."""
     (PROJECT / "db.sqlite3").unlink(missing_ok=True)
@@ -34,7 +49,7 @@ def reset_demo_database():
 reset_demo_database()
 
 server = subprocess.Popen(
-    [PY, "manage.py", "runserver", "8767", "--noreload"], cwd=PROJECT, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
+    [PY, "manage.py", "runserver", "8767", "--noreload"], cwd=PROJECT, env={**os.environ, "AUTO_ASSIGN": "0"}, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
 )
 failures = []
 
@@ -82,10 +97,10 @@ try:
         def lodge(page, buyer):
             page.goto(BASE + "/complaints/new/")
             page.select_option("select[name=factory]", label="Factory A")
-            page.fill("input[name=buyer]", buyer)
+            choose(page, "customer", buyer)
             page.fill("input[name=contract_number]", "SC-000123")
-            page.fill("input[name=product_name]", "Sample Product")
-            page.fill("input[name=delivery_date]", "2026-10-28")
+            choose(page, "product", "Sample Product")
+            page.fill("input[name=received_date]", ago(5))
             page.select_option("select[name=packing_type]", label="Bulk")
             page.fill("input[name=affected_quantity]", "20")
             page.select_option("select[name=quantity_unit]", label="Metric Ton")
@@ -93,10 +108,11 @@ try:
             page.fill("input[name=vehicle_number]", "ABC 1234")
             page.fill("input[name=loading_port]", "Example Loading Port")
             page.fill("input[name=discharge_port]", "Example Discharge Port")
+            page.fill("input[name=delivery_date]", ago(2))
             page.select_option("select[name=complaint_type]", label="Logistic")
             page.select_option("select[name=complaint_sub_type]", label="Logistic - Shortage")
             page.select_option("select[name=sample_sent]", label="No")
-            page.fill("textarea[name=description]", "Delivery was short by two tons on arrival.")
+            page.fill("textarea[name=issue_identified]", "Delivery was short by two tons on arrival.")
             page.fill("input[name=contact_email]", "contact@example.com")
             page.click("button[name=submit]")
             page.wait_for_load_state()
@@ -104,7 +120,7 @@ try:
 
         ctx, page = sign_in("sales")
         lodge(page, "Alpha Foods Ltd")
-        lodge(page, "Beta Trading Sdn Bhd")
+        lodge(page, "Bravo Trading Sdn Bhd")
         ctx.close()
 
         ctx, page = sign_in("mr")

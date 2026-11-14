@@ -25,5 +25,8 @@ class ComplaintsConfig(AppConfig):
             models.CustomerReply,
             models.Verification,
             models.ImportBatch,
+            models.Customer,
+            models.Product,
+            models.PackSize,
         ):
             register(model)

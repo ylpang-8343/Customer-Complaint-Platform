@@ -22,11 +22,15 @@
   <form method="get" class="filters">
     <div><label for="{{ filters.factory.id_for_label }}">Factory</label>{{ filters.factory }}</div>
     <div><label for="{{ filters.status.id_for_label }}">Status</label>{{ filters.status }}</div>
+    <div><label for="{{ filters.complaint_type.id_for_label }}">Complaint category</label>{{ filters.complaint_type }}</div>
+    <div><label for="{{ filters.customer.id_for_label }}">Buyer</label>{{ filters.customer }}</div>
+    <div><label for="{{ filters.product.id_for_label }}">Product</label>{{ filters.product }}</div>
     <div><label for="{{ filters.date_from.id_for_label }}">From</label>{{ filters.date_from }}</div>
     <div><label for="{{ filters.date_to.id_for_label }}">To</label>{{ filters.date_to }}</div>
     <div class="grow"><label for="{{ filters.q.id_for_label }}">Search</label>{{ filters.q }}</div>
     <div class="check"><label>{{ filters.mine }} {{ filters.mine.label }}</label></div>
     <div class="check"><label>{{ filters.overdue }} {{ filters.overdue.label }}</label></div>
+    <div><label for="{{ filters.page_size.id_for_label }}">{{ filters.page_size.label }}</label>{{ filters.page_size }}</div>
     <button class="button primary" type="submit">Apply</button>
     <a class="button" href="{% url 'home' %}">Reset</a>
   </form>
@@ -34,7 +38,7 @@
   <div class="table-wrap">
     <table class="list">
       <thead>
-        <tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Type</th><th>Lodged by</th><th>Lodged on</th><th>Status</th><th>Waiting for</th></tr>
+        <tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Product</th><th>Type</th><th>Status</th><th>Waiting for</th><th>Days Open</th></tr>
       </thead>
       <tbody>
         {% for c in page.object_list %}
@@ -42,11 +46,11 @@
           <td><a href="{% if c.is_draft %}{% url 'complaint_edit' c.pk %}{% else %}{% url 'complaint_detail' c.pk %}{% endif %}">{{ c.reference|default:"(no reference)" }}</a></td>
           <td>{{ c.factory|default:"" }}</td>
           <td>{{ c.buyer }}</td>
+          <td>{{ c.product_name|default:"—" }}</td>
           <td>{{ c.complaint_sub_type|default:c.complaint_type|default:"" }}</td>
-          <td>{{ c.lodged_by }}</td>
-          <td>{{ c.created_at|date:"j M Y" }}</td>
           <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span></td>
-          <td>{% if c.pk in waiting_ids %}<strong class="mine">You</strong>{% else %}<span class="muted">{{ c.waiting_role|default:"—" }}</span>{% endif %}{% if c.is_overdue %} <span class="tag overdue" title="Waiting {{ c.days_waiting }} days; reminders every {{ c.reminder_days }} days">{{ c.days_waiting }} d</span>{% endif %}</td>
+          <td>{% if c.pk in waiting_ids %}<strong class="mine">You</strong>{% else %}<span class="muted">{{ c.waiting_text|default:"—" }}</span>{% endif %}{% if c.is_overdue %} <span class="tag overdue" title="Waiting {{ c.days_waiting }} days; reminders every {{ c.reminder_days }} days">{{ c.days_waiting }} d</span>{% endif %}</td>
+          <td>{% if c.days_open is not None %}{{ c.days_open }}{% else %}—{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td class="empty" colspan="8">{% if filtered %}No complaints match the current filters.{% else %}No complaints yet. Use <strong>New complaint</strong> to record the first one.{% endif %}</td></tr>
@@ -55,13 +59,11 @@
     </table>
   </div>
 
-  {% if page.has_other_pages %}
   <p class="pager">
     {% if page.has_previous %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
-    Page {{ page.number }} of {{ page.paginator.num_pages }}
+    Page {{ page.number }} of {{ page.paginator.num_pages }} ({{ page.paginator.count }} complaint{{ page.paginator.count|pluralize }})
     {% if page.has_next %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
   </p>
-  {% endif %}
 
   <div class="legend">
     <strong>Status:</strong>

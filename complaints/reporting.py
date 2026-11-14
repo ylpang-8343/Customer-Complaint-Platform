@@ -4,6 +4,7 @@ Everything is computed from the complaint records, so nothing is typed twice. Dr
 a complaint is reported once it has been submitted. A deleted complaint stays in the figures, as Deleted.
 """
 
+import datetime
 from collections import OrderedDict
 
 from django.db.models import Count
@@ -29,8 +30,7 @@ STAGE_ORDER = [
 # Open complaint aging: (label, first day, last day or None). Ordered, so the chart uses one hue, light to dark.
 AGE_BANDS = [("0-3 days", 0, 3), ("4-7 days", 4, 7), ("8-14 days", 8, 14), ("15-30 days", 15, 30), ("Over 30 days", 31, None)]
 
-# How many rows the dashboard tables show before pointing at the complaint log.
-TABLE_LIMIT = 100
+# How many invalid and deleted complaints the dashboard lists (each reason is shortened and links to the complaint).
 REASON_LIMIT = 20
 
 
@@ -104,6 +104,14 @@ def valid_by_type(queryset):
     )
 
 
+def by_factory(queryset):
+    """Complaints for each factory, the largest first."""
+    counts = {}
+    for name in queryset.values_list("factory__name", flat=True):
+        counts[name or "No factory"] = counts.get(name or "No factory", 0) + 1
+    return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
+
+
 def stage_counts(queryset):
     live = queryset.filter(deleted_at__isnull=True)
     counts = {row["status"]: row["n"] for row in live.values("status").annotate(n=Count("id"))}
@@ -111,6 +119,9 @@ def stage_counts(queryset):
 
 
 def _opened(complaint):
+    """When the complaint started: the day it was received, else when it was submitted."""
+    if complaint.received_date:
+        return timezone.make_aware(datetime.datetime.combine(complaint.received_date, datetime.time()))
     return complaint.submitted_at or complaint.created_at
 
 
@@ -155,14 +166,14 @@ def dashboard(queryset, now=None):
     return {
         "summary": [(SUMMARY_LABELS[key], value, key) for key, value in counts.items()],
         "counts": counts,
+        "by_factory": _bars(by_factory(queryset)),
         "by_type": _bars(by_type(queryset)),
         "valid_by_type": _bars(valid_by_type(queryset)),
         "valid_total": counts["valid"],
         "stages": _bars(stage_counts(queryset)),
         "aging_bands": _bars(bands),
         "open_total": len(open_rows),
-        "open_rows": open_rows[:TABLE_LIMIT],
-        "open_more": max(0, len(open_rows) - TABLE_LIMIT),
+        "open_rows": open_rows,
         "reasons": reasons(queryset),
     }
 
@@ -187,6 +198,14 @@ def _type_of_problem(c):
     return f"{text} ({c.type_details})" if c.type_details else text
 
 
+def response_days(complaint):
+    """Days from the complaint received date to the reply to the customer, or None while there is no reply."""
+    reply = _related(complaint, "reply")
+    if reply is None or complaint.received_date is None:
+        return None
+    return max(0, (timezone.localtime(reply.sent_at).date() - complaint.received_date).days)
+
+
 def _valid_type(c):
     valid = not c.is_deleted and c.hod_decision == Complaint.HodDecision.VALID
     return str(c.complaint_type or "") if valid else ""
@@ -204,13 +223,18 @@ def _attr(name, record):
 # because the complaint reference replaces it (proposal section 5.5). "No." is added as the first column.
 LOG_COLUMNS = [
     ("Customer complaint no.", "text", 18, lambda c: c.reference),
+    ("Customer code", "text", 14, lambda c: c.customer.code if c.customer_id else ""),
     ("Complaint from", "text", 28, lambda c: c.buyer),
     ("Complaint received by", "text", 24, lambda c: c.lodger_display),
     ("Issue date", "datetime", 18, lambda c: _local(c.created_at)),
+    ("Complaint received date", "date", 16, lambda c: c.received_date),
+    ("Product code", "text", 14, lambda c: c.product.code if c.product_id else ""),
     ("Product", "text", 24, lambda c: c.product_name),
-    ("Delivery date", "date", 14, lambda c: c.delivery_date),
+    ("Loading date", "date", 14, lambda c: c.loading_date),
+    ("Delivery date", "date", 14, lambda c: c.delivery_date or c.discharge_date),
     ("Lab acknowledgement date", "date", 16, _attr("acknowledged_on", "lab")),
     ("Date reply to buyer / trader", "date", 16, lambda c: _date(_attr("sent_at", "reply")(c))),
+    ("Response time (days)", "number", 12, lambda c: response_days(c)),
     ("IMS acknowledgement date", "datetime", 18, lambda c: _local(c.acknowledged_at)),
     ("IMS remarks", "text", 34, lambda c: c.coordinator_remarks),
     ("Type of problem", "text", 30, _type_of_problem),
@@ -227,6 +251,7 @@ LOG_COLUMNS = [
 
 LOG_RELATED = (
     "factory", "lodged_by", "complaint_type", "complaint_sub_type", "investigation", "lab", "reply", "verification",
+    "customer", "product",
 )  # fmt: skip
 
 

@@ -8,10 +8,18 @@ from pypdf import PdfReader
 from accounts.models import FactoryPIC
 from complaints import texts, workflow
 from complaints.models import Complaint
-from tests.test_complaints import as_user, lodge  # noqa: F401  (fixtures and helpers)
+from tests.test_complaints import as_user, days_ago, lodge  # noqa: F401  (fixtures and helpers)
 from tests.test_workflow import assigned, fresh, submitted, write_findings  # noqa: F401
 
 EN_DASH = "–"
+
+
+def days_ago_text(days):
+    import datetime
+
+    from django.utils import formats
+
+    return formats.date_format(datetime.date.today() - datetime.timedelta(days=days), "j M Y")
 
 
 def approved_with(as_user, user_of, summary="", conclusion="", root_cause="Seal failed", correction="Replaced the pack", action="Audit the supplier", **overrides):
@@ -56,7 +64,8 @@ def test_the_body_has_the_parts_of_the_template_in_order(as_user, user_of):
         "   - Quantity: 20 Metric Ton",
         "   - Vessel: MV Example",
         "   - Container: ABCD1234567",
-        "   - Delivery Date: 28 Oct 2026",
+        f"   - Loading Date: {days_ago_text(20)}",
+        f"   - Discharge Date: {days_ago_text(6)}",
         "   - Loading Port: Example Loading Port",
         "   - Port of Discharge: Example Discharge Port",
         "   - Contract No.: SC-000123",
@@ -91,7 +100,7 @@ def test_the_whole_body_reads_as_the_template(as_user, user_of):
         "Dear Alice Tan,\n\n"
         "Thank you for notifying us regarding the quality concern for the shipment detailed below:\n\n"
         "   - Product: Sample Product\n   - Quantity: 20 Metric Ton\n   - Vessel: MV Example\n   - Container: ABCD1234567\n"
-        "   - Delivery Date: 28 Oct 2026\n   - Loading Port: Example Loading Port\n"
+        f"   - Loading Date: {days_ago_text(20)}\n   - Discharge Date: {days_ago_text(6)}\n   - Loading Port: Example Loading Port\n"
         "   - Port of Discharge: Example Discharge Port\n   - Contract No.: SC-000123\n"
         "   - Complaint: Flexibag leaked during discharge.\n\n"
         "Following our investigation, we would like to share the following findings:\n\n"
@@ -115,9 +124,12 @@ def test_a_section_with_nothing_in_it_is_left_out(as_user, user_of):
 
 
 def test_a_local_delivery_lists_the_vehicle_not_a_vessel(as_user, user_of):
-    complaint = approved_with(as_user, user_of, transport_type="local_bulk", vehicle_number="ABC 1234")
+    complaint = approved_with(as_user, user_of, transport_type="local_bulk", vehicle_number="ABC 1234", delivery_date=days_ago(8))
     body = texts.reply_message(complaint, user_of("fa.pic"))
     assert "   - Vehicle: ABC 1234" in body and "Vessel:" not in body and "Container:" not in body
+    # A local delivery has one delivery date, a place of loading and a destination (not a loading and a discharge date).
+    assert f"   - Delivery Date: {days_ago_text(8)}" in body and "Loading Date:" not in body and "Discharge Date:" not in body
+    assert "   - Place of Loading: Example Loading Port" in body and "   - Destination: Example Discharge Port" in body
 
 
 def test_the_customer_is_greeted_by_contact_then_by_the_buyers_team(as_user, user_of):

@@ -20,7 +20,9 @@ Everything here uses fictional demo data.
 | Access by role and factory, change log, lists the Coordinator maintains | Yes |
 | PDF report of a complaint, audit pack | Yes. The proposal's "layout of the current Customer Complaint Report" could not be copied because that report was not supplied; the sections follow what the proposal says it holds |
 | Upload of the past 6 months from a spreadsheet template | Yes |
-| Traders' view | Phase 2, out of scope |
+| Traders and group PICs: several factories, read-only for traders | Yes (feedback of the demo, scenario T34) |
+| Routing table and automatic assignment | Yes (T35) |
+| Customer, product and pack size lists, uploaded from a spreadsheet | Yes (T36) |
 
 The short PDF summary that is mailed to PICs (and the SCAR PDF) are separate from the full PDF report.
 
@@ -47,6 +49,9 @@ Open <http://127.0.0.1:8000/>. Every demo user has the password `demo-pass-123`.
 | `fa.hod` | HOD, Factory A | HOD review |
 | `fa.fm` | FM, Factory A | FM approval |
 | `fb.pic`, `fb.hod`, `fb.fm` | The same roles in Factory B | Testing that factories are kept apart |
+| `fa.qahod`, `fa.oppic`, `fa.ophod`, `fa.shippic`, `fa.shiphod` | HODs and PICs of the QA, Operation and Shipping departments, Factory A | Automatic assignment by the routing table |
+| `alan.trader` | Trader for Factories A and B | A user with several factories, read-only |
+| `group.shipping` | Group Shipping PIC, every factory | A PIC across factories |
 
 Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
@@ -64,14 +69,14 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
 They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 283 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 367 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
 | `tests/test_accounts.py` | 10 | Roles, factories, factory-scoped access, deputies, the Coordinator group |
 | `tests/test_audit.py` | 6 | The change log records who changed what, and cannot be edited |
 | `tests/test_views.py` | 5 | Sign-in, sign-out and who may open Settings |
-| `tests/test_complaints.py` | 45 | Reference numbers per factory and year, the conditional fields, mandatory fields, drafts, attachments (type and size), private drafts, the email to the Coordinator |
+| `tests/test_complaints.py` | 47 | Reference numbers per factory and year, the conditional fields, mandatory fields (customer and product codes, received date, loading, discharge and delivery dates, no future dates), drafts, attachments (type and size), private drafts, the email to the Coordinator |
 | `tests/test_layout.py` | 9 | The menu, stat tiles, list filters and paging, the Help page |
 | `tests/test_workflow.py` | 49 | Steps 3 to 8: who may do each step and when, the emails, the laboratory gate, the SCAR lock, HOD and FM decisions and the repeat cycle, the reply, closing, deleting, deputies, access between factories |
 | `tests/test_progress.py` | 6 | The progress bar at the top of a complaint |
@@ -81,6 +86,8 @@ They take about two minutes (the PDF and import tests are the slowest) and use a
 | `tests/test_deploy.py` | 21 | Putting it on a host: the settings read from the environment (production mode, `DATABASE_URL`, Render's address, HTTPS and cookies), the health check, the demo sign-in page, `seed --demo --complaints`, sending reminders from the page, an administrator from the environment, and the Render files |
 | `tests/test_reply_email.py` | 15 | The reply to the customer: the subject and body follow `docs/emailTemplate.md` (parts in order, sections left out when empty, vessel or vehicle, greeting, signature, company name), and the investigation summary and conclusion are entered, kept, shown to reviewers and in the PDF |
 | `tests/test_email_delivery.py` | 20 | Which mail service the settings choose, "Not delivered" when no mail server is set up (the warning, the label, the filter), the test email, and a mail service over HTTPS with the network call replaced (the request, a refusal and its reason) |
+| `tests/test_access_routing.py` | 51 | Access by factory for staff, traders and group PICs (and what changes when the admin changes a user's factories), the routing table, automatic assignment and its emails (only the Coordinator copied), the Coordinator reassigning, the department's HOD reviewing |
+| `tests/test_feedback_ui.py` | 31 | The form labels and the five-part description, the master data upload (templates, add and update, a bad file saves nothing, who may upload), My complaints (ten a page, the page size, the columns, the person each complaint waits for, Days Open, filters), the dashboard by factory, short reasons and paging, the log and export filters, the reply as a PDF and in the audit pack, no future dates on the later steps |
 | `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
@@ -114,7 +121,7 @@ Expected: `fa.pic` is refused and has no *Settings* link. `mr` can maintain comp
 ### B. Lodging (steps 1 and 2)
 
 **T03 Lodge a complaint and save a draft** (`sales`)
-1. Choose **New complaint**. Choose *Factory A*, type a buyer name, and choose **Save draft**.
+1. Choose **New complaint**. Choose *Factory A*, choose a buyer from the list, and choose **Save draft**.
 
 Expected: the message *Draft FA/2026/0001 saved*. The reference carries the factory code, the year and a running number for that factory. The lodger, department and date come from the profile and cannot be edited. The factory can no longer be changed. The draft is in *My complaints* with status *Draft*, and no one else can see it (check later as `mr`).
 
@@ -127,14 +134,14 @@ Expected: the message *Draft FA/2026/0001 saved*. The reference carries the fact
 2. *Transport type*: try each of the four choices.
 3. *Complaint type*: choose Packaging, then Logistic, then Others. Choose a sub-type ending in *Others*.
 
-Expected: *Pack size* opens only for Pack. Shipment - Bulk shows the vessel; Shipment - Container shows vessel and container; Local Delivery - Bulk shows the vehicle; Local Delivery - Container shows vehicle and container. The sub-type list holds only the sub-types of the chosen type, and changing the type clears a sub-type that no longer fits. *Others*, or a sub-type *Others*, opens *Short details*.
+Expected: *Pack size* opens only for Pack. Shipment - Bulk shows the vessel, the loading date and the discharge date (the places are *From (loading port / city)* and *To (discharge port / city)*); Shipment - Container adds the container; Local Delivery - Bulk shows the vehicle and the *Delivery date* (the places become *Place of loading* and *Destination*); Local Delivery - Container adds the container. The sub-type list holds only the sub-types of the chosen type, and changing the type clears a sub-type that no longer fits. *Others*, or a sub-type *Others*, opens *Short details*.
 
 - [ ] Pass
 
 **T05 Submitting is blocked until the mandatory fields are filled** (`sales`)
 1. Open the draft and choose **Submit to Coordinator** with most fields empty.
 
-Expected: you stay on the form, every missing field is marked in red, and a message says the draft is saved. The mandatory fields are the factory, buyer, contract number, product, delivery date, packing type, affected quantity and unit, transport type, loading port, port of discharge, complaint type, sample sent, description and the buyer's email address.
+Expected: you stay on the form, every missing field is marked in red, and a message says the draft is saved. The mandatory fields are the factory, buyer (customer code), contract number, product (product code or SKU), complaint received date, packing type, affected quantity and unit, transport type, loading and destination (and the dates that go with them), complaint type, sample sent, the issue identified and the buyer's email address. A date in the future is refused, and the date pickers stop at today. The description has five parts; only the issue identified is mandatory. *Buyer contact* (not "Contact at the buyer") holds the contact and, next to *Complaint method*, the complaint received date.
 
 ![Errors](img/17-form-errors.png)
 
@@ -145,7 +152,7 @@ Expected: you stay on the form, every missing field is marked in red, and a mess
 2. Download the attached file from the complaint. Try to attach a `.exe`.
 3. Try to open the edit page of the submitted complaint.
 
-Expected: *Complaint FA/2026/0001 was submitted to the Coordinator*, status *Submitted*, and the Coordinator receives an email with a summary and a link (see the console). The file downloads under its own name; the `.exe` is refused. A submitted complaint cannot be edited. As `mr` the complaint is in the list; as `fb.pic` it is not.
+Expected: with automatic assignment switched off (`AUTO_ASSIGN=false`) *Complaint FA/2026/0001 was submitted to the Coordinator*, status *Submitted*, and the Coordinator receives an email with a summary and a link (see the console). With it on (the default) the message names the department it was assigned to; see T35. The file downloads under its own name; the `.exe` is refused. A submitted complaint cannot be edited. As `mr` the complaint is in the list; as `fb.pic` it is not.
 
 ![Submitted](img/18-complaint-submitted.png)
 
@@ -321,7 +328,7 @@ Get-Content tools\screenshots\demo_data.py | .venv\Scripts\python manage.py shel
 2. Tick *Factory A* and *Factory B*, set *Lodged from* and *Lodged to*, and choose **Apply**.
 3. Sign in as `fa.pic` and as `sales`.
 
-Expected: Total = Valid + Invalid + Under investigation + Deleted. Valid complaints are *in progress* until closed. The charts, the aging bands, the table of where each open complaint is waiting and the reasons for invalid and deleted complaints all follow the same filter. `fa.pic` sees only Factory A and no choice of other factories; `sales` sees only the complaints they lodged. Drafts are never counted.
+Expected: Total = Valid + Invalid + Under investigation + Deleted. Valid complaints are *in progress* until closed. The charts (including *Complaints by factory*), the aging bands, the paged table of where each open complaint is waiting and the short reasons for invalid and deleted complaints (each a link to the complaint) all follow the same filter. *Show* sets 10, 25, 50 or 100 rows a page. `fa.pic` sees only Factory A and no choice of other factories; `sales` sees only the complaints they lodged. Drafts are never counted.
 
 ![Dashboard](img/50-dashboard.png) ![Filtered](img/51-dashboard-filtered.png) ![Dark mode](img/54-dashboard-dark.png)
 
@@ -331,7 +338,7 @@ Expected: Total = Valid + Invalid + Under investigation + Deleted. Valid complai
 1. Choose **Complaint log**. Check the columns and the summary under the table.
 2. Choose **Export to Excel** and open the file. Repeat with a factory ticked, and as `fa.pic`.
 
-Expected: the columns are *Customer complaint no., Complaint from, Complaint received by, Issue date, Product, Delivery date, Lab acknowledgement date, Date reply to buyer / trader, IMS acknowledgement date, IMS remarks, Type of problem, Types of valid complaint, Correction, Corrective action, First verified date, Second verified date, Date case closed, Remarks, Deleted, Reason delete*, with a *No.* column first and no CAR number. The Excel file has the same columns and order, real dates, the summary and a line saying who exported it. It follows the factory and date filters and contains only what the user may see.
+Expected: the columns are *Customer complaint no., Customer code, Complaint from, Complaint received by, Issue date, Complaint received date, Product code, Product, Loading date, Delivery date, Lab acknowledgement date, Date reply to buyer / trader, Response time (days), IMS acknowledgement date, IMS remarks, Type of problem, Types of valid complaint, Correction, Corrective action, First verified date, Second verified date, Date case closed, Remarks, Deleted, Reason delete*, with a *No.* column first and no CAR number. The Excel file has the same columns and order, real dates, the summary and a line saying who exported it. It follows the filters on the screen (factory, dates, status, category, buyer, product, result, search) and contains only what the user may see.
 
 ![Complaint log](img/52-complaint-log.png) ![Scrolled to the right](img/53-complaint-log-scrolled.png)
 
@@ -394,7 +401,7 @@ Expected: a folder named after the reference with the PDF report, the SCARs as s
 1. Choose **Import** and **Download the template**. Open it in Excel.
 2. As `fa.pic` try the address `/import/`.
 
-Expected: the workbook has the sheets *Instructions* (what each column holds, with an example), *Complaints* (44 columns, the four required ones in dark headers, drop-downs for the choice columns) and *Lists* (the factories, types, sub-types and choices from Settings). `fa.pic` has no Import in the menu and is sent back to the list with a message.
+Expected: the workbook has the sheets *Instructions* (what each column holds, with an example), *Complaints* (49 columns, the four required ones in dark headers, drop-downs for the choice columns) and *Lists* (the factories, types, sub-types and choices from Settings). `fa.pic` has no Import in the menu and is sent back to the list with a message.
 
 ![Import page](img/57-import-page.png)
 
@@ -445,6 +452,52 @@ Expected: the sign-in page lists the demo users and the shared password. The Das
 
 - [ ] Pass
 
+### M. Feedback of the demo
+
+**T34 Several factories, and who sees what** (`alan.trader`, `group.shipping`, `fa.lab`, `fb.hod`, `mr`)
+1. Lodge a complaint for each of Factories A, B and C as `sales`.
+2. Sign in as `fa.lab`, `fb.hod`, `alan.trader`, `group.shipping`, `management` and `mr`, and open *My complaints*.
+3. As `mr`, open Settings > Users > `alan.trader` and add Factory C under *Factories covered*; check again as `alan.trader`. Then remove it.
+
+Expected: `fa.lab` sees Factory A only; `fb.hod` Factory B only; `alan.trader` Factories A and B and nothing else, with no action buttons (a trader reads and follows); `group.shipping` every factory it is assigned; `management` and `mr` all. A change in the admin panel shows at once. Anyone who types the address of a complaint they may not see gets *not found*.
+
+![A trader's list](img/79-trader-home.png)
+
+- [ ] Pass
+
+**T35 Automatic assignment by the routing table** (`sales`, then `fa.pic`, `fa.oppic`, `fa.shippic`, `mr`)
+1. As `sales`, submit a *Packaging* complaint, then a *Quality* one, then a *Logistic* complaint with *Local Delivery*, then one with *Shipment*, then *Others*.
+2. Read each confirmation message and the emails in the console. As `mr` open each complaint.
+3. As `mr`, choose **Change PICs** on one and send it to another department.
+
+Expected: Packaging goes to Production (`fa.pic`), Quality to QA (`fa.lab`), the local Logistic complaint to Operation (`fa.oppic`), the shipment to Shipping (`fa.shippic`; `group.shipping` is listed too), and *Others* waits for the Coordinator. Each PIC is emailed with only the Coordinator copied, and the complaint shows *Routed to* the department. The HOD who reviews it is the HOD of that department. The Coordinator can reassign, and the routing table is kept in Settings > Routing rules.
+
+![Shipment form](img/71-form-shipment.png) ![Assigned](img/72-auto-assigned.png) ![Local form](img/73-form-local.png)
+
+- [ ] Pass
+
+**T36 Customer, product and pack size lists** (`mr`, then `sales`, `fa.pic`)
+1. Choose **Master data**. Download the *Customers* template, add two rows (one new code, one existing code with a changed name) and upload it. Then upload a file with a missing code and a repeated code.
+2. Repeat for *Products* and *Pack sizes* (also as a CSV). Set one entry to *Active = No*.
+3. As `sales` open **New complaint**. As `fa.pic` open *Master data*.
+
+Expected: a good file reports how many were added, updated and unchanged. A bad file saves nothing and lists each problem with its row. The new entries are offered on the form (with their codes), the inactive one is not, and old complaints keep their names. `fa.pic` is sent back with a message.
+
+![Master data](img/74-masterdata.png) ![Uploaded](img/75-masterdata-uploaded.png)
+
+- [ ] Pass
+
+**T37 My complaints, the reply as a file, and dates** (`mr`, `sales`)
+1. Open *My complaints* with more than 10 complaints. Change *Show*. Filter by product, buyer and complaint category.
+2. Open a complaint that has a reply, and its *Effectiveness check* page.
+3. As `mr` open the verification page and type tomorrow's date as the first verified date. As `fa.lab` do the same for the laboratory acknowledgement date.
+
+Expected: ten complaints a page to start with and *Page 1 of 2 (12 complaints)*; the columns are *Reference, Factory, Buyer, Product, Type, Status, Waiting for, Days Open*; *Waiting for* names the person (for example *PIC - Sample PIC*); the three filters work together. The reply shows as a PDF to download, not the whole email. A future date is refused with *The date cannot be in the future.*
+
+![My complaints](img/76-home-columns.png) ![Dashboard](img/77-dashboard-feedback.png) ![Reply as a file](img/78-reply-as-file.png)
+
+- [ ] Pass
+
 ## 5. Which scenario tests which part of the proposal
 
 | Proposal | Scenarios |
@@ -467,6 +520,7 @@ Expected: the sign-in page lists the demo users and the shared password. The Das
 | Running the demo on a host | T32 |
 | Access by role and factory | T02, T06, T11, T22, T23 |
 | Progress and history | T16 |
+| Demo feedback: several factories, routing, lists, columns, dates | T34, T35, T36, T37 |
 
 ## 6. Useful checks while testing
 
@@ -484,7 +538,7 @@ pip install playwright openpyxl pypdfium2 pillow   # in any Python environment; 
 python tools\screenshots\run_all.py
 ```
 
-It runs seven scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
+It runs eight scripts one after the other, prints how many screenshots were saved and how many checks passed for each, and exits with an error if a check fails. It **erases `db.sqlite3` and `media/`** in the project, and puts a clean demo database back at the end. `tools/screenshots/demo_data.py` creates the twelve demo complaints used by the dashboard images.
 
 | Script | Images |
 |---|---|
@@ -495,6 +549,7 @@ It runs seven scripts one after the other, prints how many screenshots were save
 | `reports.py` | 50 to 56 |
 | `documents.py` | 57 to 66 (the import, the PDF report and the audit pack) |
 | `deployment.py` | 67 to 70 (the demo sign-in page, sending reminders from the page) |
+| `feedback.py` | 71 to 79 (the feedback of the demo: forms, automatic assignment, master data, columns, dashboard, reply file, trader) |
 
 ## 8. Not covered
 

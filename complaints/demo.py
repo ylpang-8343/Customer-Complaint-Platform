@@ -13,7 +13,7 @@ from django.utils import timezone
 from accounts.models import Factory, FactoryPIC, User
 
 from . import workflow
-from .models import Complaint, ComplaintMethod, ComplaintSubType, ComplaintType
+from .models import Complaint, ComplaintMethod, ComplaintSubType, ComplaintType, Customer, Product, RoutingRule
 
 # (factory, type, sub-type, buyer, product, tons, stage, days since lodged, days at this stage, invalid?)
 DEMO_COMPLAINTS = [
@@ -32,28 +32,37 @@ DEMO_COMPLAINTS = [
 ]  # fmt: skip
 
 
+# The demo PIC and HOD of each department (the usernames end with these).
+DEPARTMENT_USERS = {"Production": ("pic", "hod"), "QA": ("labmgr", "qahod"), "Operation": ("oppic", "ophod"), "Shipping": ("shippic", "shiphod")}
+
+
 def _make(spec, now):
     code, type_name, sub_name, buyer, product, tons, stage, age, at_stage, invalid = spec
     mr, sales = User.objects.get(username="mr"), User.objects.get(username="sales")
     factory = Factory.objects.get(code=code)
     prefix = code.lower()
-    pic, hod, fm = (User.objects.get(username=f"{prefix}.{role}") for role in ("pic", "hod", "fm"))
     complaint = Complaint(
         lodged_by=sales, lodger_department="Sales", factory=factory, buyer=buyer,
+        customer=Customer.objects.filter(name=buyer).first(), product=Product.objects.filter(name=product).first(),
         contract_number="SC-%06d" % (100 + Complaint.objects.count()), product_name=product,
+        received_date=date.today() - timedelta(days=age),
         delivery_date=date.today() - timedelta(days=age + 5), packing_type="bulk", affected_quantity=tons,
-        quantity_unit="mt", transport_type="local_bulk", vehicle_number="ABC 1234", loading_port="Example Loading Port",
-        discharge_port="Example Destination", description=f"{sub_name}: the customer reported the problem on delivery.",
+        quantity_unit="mt", transport_type="local_bulk", vehicle_number="ABC 1234", loading_port="Example place of loading",
+        discharge_port="Example destination", issue_identified=f"{sub_name}: the customer reported the problem on delivery.",
         complaint_type=ComplaintType.objects.get(name=type_name),
         complaint_sub_type=ComplaintSubType.objects.filter(name=sub_name).first(), sample_sent=False,
         contact_person="Sample Contact", contact_email="contact@example.com",
         complaint_method=ComplaintMethod.objects.filter(name="Email").first(),
     )  # fmt: skip
+    # The PIC and the HOD are those of the department the routing table sends this kind of complaint to.
+    department = RoutingRule.department_for(complaint)
+    pic_suffix, hod_suffix = DEPARTMENT_USERS[department.name if department else "Production"]
+    pic, hod, fm = (User.objects.get(username=f"{prefix}.{suffix}") for suffix in (pic_suffix, hod_suffix, "fm"))
     complaint.assign_reference()
     complaint.save()
     complaint.submit(sales)
     if stage != "submitted":
-        workflow.assign(complaint, mr, FactoryPIC.objects.filter(factory=factory, user=pic), "Please investigate.")
+        workflow.assign(complaint, mr, FactoryPIC.objects.filter(factory=factory, user=pic), "Please investigate.", department=department)
         if stage == "pending_scar":
             workflow.save_investigation(complaint, pic, "The foreign matter came from a supplier's drum liner.", "Replaced the batch.", "Audit the liner supplier.", "external")
             workflow.issue_scar(complaint, pic, "supplier", "Liner Supplies Co.", "quality@liner.example", f"SCAR {complaint.reference}", "Please investigate.")

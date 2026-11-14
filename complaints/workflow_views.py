@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from . import texts, workflow
 from .models import Attachment, Complaint, Scar
 from .pdf import scar_pdf
-from .report_pdf import audit_pack, complaint_report_pdf
+from .report_pdf import audit_pack, complaint_report_pdf, reply_filename, reply_pdf
 from .views import _visible_complaint_or_404
 from .workflow import WorkflowError
 from .workflow_forms import (
@@ -76,6 +76,7 @@ def complaint_assign(request, pk):
                 notified = workflow.assign(
                     complaint, request.user, form.cleaned_data["pics"],
                     form.cleaned_data["remarks"], form.cleaned_data["attachments"],
+                    department=form.cleaned_data["department"],
                 )  # fmt: skip
             except WorkflowError as error:
                 _show_errors(form, error)
@@ -371,6 +372,17 @@ def complaint_pdf(request, pk):
     complaint = _visible_complaint_or_404(request, pk)
     response = HttpResponse(complaint_report_pdf(complaint, request.user), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{complaint.reference.replace("/", "-") or "draft"}.pdf"'
+    return response
+
+
+@login_required
+def complaint_reply_pdf(request, pk):
+    """The reply that went to the customer, as a document to download."""
+    complaint = _visible_complaint_or_404(request, pk)
+    if not hasattr(complaint, "reply"):
+        raise Http404("No reply has been sent for this complaint.")
+    response = HttpResponse(reply_pdf(complaint), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{reply_filename(complaint)}"'
     return response
 
 

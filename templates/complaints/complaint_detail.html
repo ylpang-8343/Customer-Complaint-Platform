@@ -153,8 +153,7 @@
 <section class="card">
   <h2 class="section-title"><span class="badge">R</span> Reply sent to the customer</h2>
   <p class="muted">{{ reply.sent_at|date:"j M Y, H:i" }}{% if not complaint.is_imported %} · {{ reply.sent_by }}{% endif %} · to {{ reply.to_email|default:"the customer" }}</p>
-  <p><strong>{{ reply.subject }}</strong></p>
-  <p>{{ reply.body|linebreaksbr }}</p>
+  {% include "complaints/_reply_file.html" %}
   {% include "complaints/_files.html" with files=files.reply %}
 </section>
 {% endif %}

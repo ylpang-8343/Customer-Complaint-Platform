@@ -18,6 +18,12 @@
 
 <div class="dash-grid">
   <section class="card">
+    <h2 class="section-title">Complaints by factory</h2>
+    {% include "_bars.html" with rows=by_factory %}
+    <p class="footnote">Every submitted complaint in the period, including deleted ones, for the factories you may see.</p>
+  </section>
+
+  <section class="card">
     <h2 class="section-title">Complaints by type</h2>
     {% include "_bars.html" with rows=by_type %}
     <p class="footnote">Every submitted complaint in the period, including deleted ones.</p>
@@ -47,7 +53,7 @@
     <table class="list">
       <thead><tr><th>Complaint</th><th>Factory</th><th>Type</th><th>Step</th><th>Waiting for</th><th class="num">Days open</th><th class="num">At this step</th></tr></thead>
       <tbody>
-        {% for row in open_rows %}
+        {% for row in open_page.object_list %}
         <tr>
           <td><a href="{% url 'complaint_detail' row.complaint.pk %}">{{ row.complaint.reference }}</a></td>
           <td>{{ row.complaint.factory }}</td>
@@ -63,7 +69,11 @@
       </tbody>
     </table>
   </div>
-  {% if open_more %}<p class="footnote">The oldest {{ open_rows|length }} are shown; {{ open_more }} more are in the complaint log.</p>{% endif %}
+  <p class="pager">
+    {% if open_page.has_previous %}<a href="?{% if open_querystring %}{{ open_querystring }}&amp;{% endif %}open_page={{ open_page.previous_page_number }}">Previous</a>{% endif %}
+    Page {{ open_page.number }} of {{ open_page.paginator.num_pages }} ({{ open_page.paginator.count }} item{{ open_page.paginator.count|pluralize }})
+    {% if open_page.has_next %}<a href="?{% if open_querystring %}{{ open_querystring }}&amp;{% endif %}open_page={{ open_page.next_page_number }}">Next</a>{% endif %}
+  </p>
 </section>
 
 {% if reasons %}
@@ -71,12 +81,12 @@
   <h2 class="section-title">Invalid and deleted complaints, with the reason</h2>
   <div class="table-wrap">
     <table class="list">
-      <thead><tr><th>Complaint</th><th>Result</th><th>Buyer</th><th>Reason</th></tr></thead>
+      <thead><tr><th>Complaint</th><th>Result</th><th>Buyer</th><th>Reason (summary)</th></tr></thead>
       <tbody>
         {% for kind, complaint, reason in reasons %}
         <tr>
           <td><a href="{% url 'complaint_detail' complaint.pk %}">{{ complaint.reference }}</a></td>
-          <td>{{ kind }}</td><td>{{ complaint.buyer }}</td><td>{{ reason|default:"—" }}</td>
+          <td>{{ kind }}</td><td>{{ complaint.buyer }}</td><td>{% if reason %}<a href="{% url 'complaint_detail' complaint.pk %}" title="Open the complaint for the full reason">{{ reason|truncatechars:60 }}</a>{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

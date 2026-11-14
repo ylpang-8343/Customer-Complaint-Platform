@@ -15,22 +15,45 @@ from complaints.models import (
     ComplaintMethod,
     ComplaintSubType,
     ComplaintType,
+    Customer,
+    PackSize,
+    Product,
     ReferenceCounter,
 )
 
 PASSWORD = "demo-pass-123"
 
 
+def days_ago(days):
+    """A date in the form's format. The form does not accept a date in the future, so the tests use the past."""
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+
+
+def _listed(model, name):
+    """The entry of a list (customers, products, pack sizes) with this name; made if it is not there yet."""
+    entry = model.objects.filter(name=name).first()
+    if entry is None:
+        fields = {"name": name}
+        if model is not PackSize:
+            fields["code"] = f"T{model.objects.count() + 1:04d}"
+        entry = model.objects.create(**fields)
+    return entry.pk
+
+
+# The form's names for what older tests call buyer, product_name, pack_size and description.
+LISTS = {"buyer": ("customer", Customer), "product_name": ("product", Product), "pack_size": ("pack_size_option", PackSize)}
+
+
 def complete_data(**overrides):
     """POST data for a complete complaint about a leaking flexibag shipped in a container."""
     data = {
         "factory": Factory.objects.get(code="FA").pk,
-        "buyer": "Example Buyer Ltd",
+        "customer": _listed(Customer, "Example Buyer Ltd"),
         "contract_number": "SC-000123",
-        "product_name": "Sample Product",
-        "delivery_date": "2026-10-28",
+        "product": _listed(Product, "Sample Product"),
+        "received_date": days_ago(3),
         "packing_type": "pack",
-        "pack_size": "Flexibag",
+        "pack_size_option": _listed(PackSize, "Flexibag"),
         "affected_quantity": "20",
         "quantity_unit": "mt",
         "transport_type": "shipment_container",
@@ -38,12 +61,19 @@ def complete_data(**overrides):
         "container_number": "ABCD1234567",
         "loading_port": "Example Loading Port",
         "discharge_port": "Example Discharge Port",
+        "loading_date": days_ago(20),
+        "discharge_date": days_ago(6),
         "complaint_type": ComplaintType.objects.get(name="Packaging").pk,
         "complaint_sub_type": ComplaintSubType.objects.get(name="Packaging - Leaking").pk,
         "sample_sent": "False",
-        "description": "Flexibag leaked during discharge.",
+        "issue_identified": "Flexibag leaked during discharge.",
         "contact_email": "contact@example.com",
     }
+    for old, (new, model) in LISTS.items():
+        if old in overrides:
+            overrides[new] = _listed(model, overrides.pop(old))
+    if "description" in overrides:
+        overrides["issue_identified"] = overrides.pop("description")
     data.update(overrides)
     return data
 
@@ -115,6 +145,7 @@ def complete_complaint(user_of):
             "buyer": "Example Buyer Ltd",
             "contract_number": "SC-000123",
             "product_name": "Sample Product",
+            "received_date": datetime.date(2026, 11, 1),
             "delivery_date": datetime.date(2026, 10, 28),
             "packing_type": "bulk",
             "affected_quantity": Decimal("20"),
@@ -123,7 +154,7 @@ def complete_complaint(user_of):
             "vehicle_number": "WXY 1234",
             "loading_port": "Example Loading Port",
             "discharge_port": "Example Discharge Port",
-            "description": "Seal damaged.",
+            "issue_identified": "Seal damaged.",
             "complaint_type": ComplaintType.objects.get(name="Logistic"),
             "complaint_sub_type": ComplaintSubType.objects.get(name="Logistic - Shortage"),
             "sample_sent": False,
@@ -142,9 +173,9 @@ def test_a_complete_complaint_has_nothing_missing(complete_complaint):
 def test_an_empty_draft_is_missing_every_mandatory_field(user_of):
     missing = Complaint(lodged_by=user_of("sales")).missing_mandatory()
     assert set(missing) == {
-        "factory", "buyer", "contract_number", "product_name", "delivery_date", "packing_type",
+        "factory", "buyer", "contract_number", "product_name", "received_date", "packing_type",
         "affected_quantity", "quantity_unit", "transport_type", "loading_port", "discharge_port",
-        "description", "complaint_type", "sample_sent", "contact_email",
+        "issue_identified", "complaint_type", "sample_sent", "contact_email",
     }  # fmt: skip
 
 
@@ -161,8 +192,9 @@ def test_optional_fields_are_not_mandatory(complete_complaint):
 @pytest.mark.parametrize(
     "transport, needs",
     [
-        ("shipment_bulk", {"vessel_name"}),
-        ("shipment_container", {"vessel_name", "container_number"}),
+        # A shipment needs a loading date and a discharge date; a local delivery has the delivery date the fixture gives.
+        ("shipment_bulk", {"vessel_name", "loading_date", "discharge_date"}),
+        ("shipment_container", {"vessel_name", "container_number", "loading_date", "discharge_date"}),
         ("local_bulk", {"vehicle_number"}),
         ("local_container", {"vehicle_number", "container_number"}),
     ],
@@ -172,6 +204,15 @@ def test_transport_type_decides_which_fields_are_mandatory(complete_complaint, t
         transport_type=transport, vessel_name="", vehicle_number="", container_number=""
     )
     assert set(complaint.missing_mandatory()) == needs
+
+
+def test_a_local_delivery_needs_its_delivery_date_and_a_shipment_does_not(complete_complaint):
+    assert set(complete_complaint(delivery_date=None).missing_mandatory()) == {"delivery_date"}
+    shipment = complete_complaint(
+        transport_type="shipment_bulk", vessel_name="MV Example", delivery_date=None,
+        loading_date=datetime.date(2026, 10, 1), discharge_date=datetime.date(2026, 10, 20),
+    )  # fmt: skip
+    assert shipment.missing_mandatory() == {}
 
 
 def test_pack_size_is_mandatory_only_for_pack(complete_complaint):
@@ -217,6 +258,24 @@ def test_saving_clears_fields_that_no_longer_apply(complete_complaint):
     assert complaint.type_details == ""
 
 
+def test_saving_clears_the_dates_of_the_other_kind_of_transport(complete_complaint):
+    shipment = complete_complaint(
+        transport_type="shipment_bulk", vessel_name="MV Example", delivery_date=datetime.date(2026, 10, 28),
+        loading_date=datetime.date(2026, 10, 1), discharge_date=datetime.date(2026, 10, 20),
+    )  # fmt: skip
+    shipment.assign_reference()
+    shipment.save()
+    shipment.refresh_from_db()
+    assert shipment.delivery_date is None and shipment.loading_date == datetime.date(2026, 10, 1)
+    local = complete_complaint(
+        loading_date=datetime.date(2026, 10, 1), discharge_date=datetime.date(2026, 10, 20),
+    )  # fmt: skip
+    local.assign_reference()
+    local.save()
+    local.refresh_from_db()
+    assert (local.loading_date, local.discharge_date) == (None, None) and local.delivery_date == datetime.date(2026, 10, 28)
+
+
 def test_a_sub_type_of_another_type_is_dropped(complete_complaint):
     complaint = complete_complaint(complaint_type=ComplaintType.objects.get(name="Packaging"))
     complaint.assign_reference()
@@ -247,7 +306,8 @@ def test_form_page_shows_the_lodger_and_hides_nothing_server_side(as_user):
     assert response.status_code == 200
     html = response.content.decode()
     assert "Sample Sales" in html and "Sales" in html
-    for name in ("pack_size", "vessel_name", "vehicle_number", "container_number", "type_details"):
+    for name in ("pack_size_option", "vessel_name", "vehicle_number", "container_number", "type_details",
+                 "loading_date", "discharge_date", "delivery_date", "received_date", "issue_identified"):  # fmt: skip
         assert f'name="{name}"' in html  # present for the script to open, and for no-script use
 
 

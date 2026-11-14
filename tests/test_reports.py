@@ -23,9 +23,16 @@ from tests.test_workflow import (  # noqa: F401
 )
 
 DAY = datetime.timedelta(days=1)
+
+
+def days_ago_text(days):
+    from django.utils import formats
+
+    return formats.date_format(datetime.date.today() - days * DAY, "j M Y")
 EXPECTED_HEADERS = [
-    "No.", "Customer complaint no.", "Complaint from", "Complaint received by", "Issue date", "Product",
-    "Delivery date", "Lab acknowledgement date", "Date reply to buyer / trader", "IMS acknowledgement date",
+    "No.", "Customer complaint no.", "Customer code", "Complaint from", "Complaint received by", "Issue date",
+    "Complaint received date", "Product code", "Product", "Loading date", "Delivery date",
+    "Lab acknowledgement date", "Date reply to buyer / trader", "Response time (days)", "IMS acknowledgement date",
     "IMS remarks", "Type of problem", "Types of valid complaint", "Correction", "Corrective action",
     "First verified date", "Second verified date", "Date case closed", "Remarks", "Deleted", "Reason delete",
 ]  # fmt: skip
@@ -102,8 +109,9 @@ def test_the_stage_counts_follow_the_process_order(portfolio, user_of):
 
 def test_open_complaint_aging(portfolio, user_of):
     now = timezone.now()
-    Complaint.objects.filter(pk=portfolio["other"].pk).update(submitted_at=now - 20 * DAY)
-    Complaint.objects.filter(pk=portfolio["investigating"].pk).update(submitted_at=now - 2 * DAY)
+    today = timezone.localdate()  # ageing counts from the day the complaint was received
+    Complaint.objects.filter(pk=portfolio["other"].pk).update(received_date=today - 20 * DAY)
+    Complaint.objects.filter(pk=portfolio["investigating"].pk).update(received_date=today - 2 * DAY)
     rows, bands = reporting.aging(reporting.scoped(user_of("mr")), now)
     # open = not closed, not deleted
     assert [r["complaint"].pk for r in rows][0] == portfolio["other"].pk  # oldest first
@@ -220,7 +228,9 @@ def test_the_log_takes_each_column_from_the_right_record(portfolio, user_of, as_
     row = dict(zip(EXPECTED_HEADERS[1:], reporting.log_row_text(closed)))
     assert row["Customer complaint no."] == closed.reference
     assert row["Complaint from"] == "Example Buyer Ltd" and row["Complaint received by"] == "Sample Sales"
-    assert row["Product"] == "Sample Product" and row["Delivery date"] == "28 Oct 2026"
+    assert row["Product"] == "Sample Product" and row["Product code"] == "P0001" and row["Customer code"] == "C0001"
+    assert row["Loading date"] == days_ago_text(20) and row["Delivery date"] == days_ago_text(6)  # a shipment: the discharge date
+    assert row["Complaint received date"] == days_ago_text(3) and row["Response time (days)"] != ""
     assert row["Type of problem"] == "Packaging - Leaking" and row["Types of valid complaint"] == "Packaging"
     assert row["Correction"] == "Replaced the pack" and row["Corrective action"] == "Changed the supplier of seals"
     assert row["First verified date"] == "1 Dec 2026" and row["Second verified date"] == "1 Mar 2027"
@@ -285,7 +295,7 @@ def test_the_export_is_an_excel_file_with_the_log_columns(portfolio, as_user):
     assert response["Content-Disposition"] == f'attachment; filename="complaint-log-{timezone.localdate():%Y-%m-%d}.xlsx"'
     sheet = workbook_of(response)["Complaint log"]
     assert [cell.value for cell in sheet[1]] == EXPECTED_HEADERS
-    assert sheet.freeze_panes == "C2" and sheet.auto_filter.ref == "A1:U6"
+    assert sheet.freeze_panes == "C2" and sheet.auto_filter.ref == "A1:Z6"
     assert [sheet.cell(row=r, column=1).value for r in range(2, 7)] == [1, 2, 3, 4, 5]
 
 
@@ -297,7 +307,7 @@ def test_the_export_keeps_real_dates_and_the_right_values(portfolio, as_user):
     issue = sheet.cell(row=first, column=columns["Issue date"])
     assert isinstance(issue.value, datetime.datetime) and issue.number_format == "dd mmm yyyy hh:mm"
     delivery = sheet.cell(row=first, column=columns["Delivery date"])
-    assert delivery.value.date() == datetime.date(2026, 10, 28) and delivery.number_format == "dd mmm yyyy"
+    assert delivery.value.date() == datetime.date.today() - datetime.timedelta(days=6) and delivery.number_format == "dd mmm yyyy"
     assert sheet.cell(row=first, column=columns["First verified date"]).value.date() == datetime.date(2026, 12, 1)
     assert sheet.cell(row=first, column=columns["Remarks"]).value == "Effective"
     deleted_row = next(r for r in range(2, 7) if sheet.cell(row=r, column=columns["Deleted"]).value == "Yes")

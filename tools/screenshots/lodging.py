@@ -1,4 +1,6 @@
 """Drive the lodging form in a real browser, assert the conditional fields, save screenshots."""
+import datetime
+import os
 import shutil
 import subprocess
 import sys
@@ -24,6 +26,20 @@ LOG = SCRATCH / "server.log"
 (SCRATCH / "supplier-report.pdf").write_bytes(b"%PDF-1.4\n%fake report for the demo\n")
 
 
+
+def ago(days):
+    """A date in the past: the form does not accept a date in the future."""
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+
+
+def choose(page, name, text):
+    """Pick the entry of a list (customer, product, pack size) whose label contains the text."""
+    value = page.eval_on_selector_all(
+        f"select[name={name}] option", "(els, t) => (els.find(e => e.textContent.includes(t)) || {}).value", text
+    )
+    page.select_option(f"select[name={name}]", value=value)
+
+
 def reset_demo_database():
     """Start from an empty database with the reference data and the demo users, and no uploaded files."""
     (PROJECT / "db.sqlite3").unlink(missing_ok=True)
@@ -36,7 +52,7 @@ reset_demo_database()
 
 server = subprocess.Popen(
     [PY, "manage.py", "runserver", "8765", "--noreload"],
-    cwd=PROJECT, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
+    cwd=PROJECT, env={**os.environ, "AUTO_ASSIGN": "0"}, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
 )
 failures = []
 
@@ -94,15 +110,15 @@ try:
         page.goto(BASE + "/complaints/new/")
 
         # Nothing conditional is open on a blank form
-        for name in ("pack_size", "vessel_name", "vehicle_number", "container_number", "complaint_sub_type", "type_details"):
+        for name in ("pack_size_option", "vessel_name", "vehicle_number", "container_number", "complaint_sub_type", "type_details"):
             check(f"blank form hides {name}", not visible(name))
         shot(page, "15-form-blank", full=True)
 
         # e. Packing type
         page.select_option("select[name=packing_type]", label="Pack")
-        check("Pack opens pack size", visible("pack_size"))
+        check("Pack opens pack size", visible("pack_size_option"))
         page.select_option("select[name=packing_type]", label="Bulk")
-        check("Bulk closes pack size", not visible("pack_size"))
+        check("Bulk closes pack size", not visible("pack_size_option"))
         page.select_option("select[name=packing_type]", label="Pack")
 
         # g. Transport type
@@ -138,11 +154,11 @@ try:
         # A draft needs only the factory
         page.reload()
         page.select_option("select[name=factory]", label="Factory A")
-        page.fill("input[name=buyer]", "Example Buyer Ltd")
+        choose(page, "customer", "Example Buyer Ltd")
         page.click("button[name=save]")
         page.wait_for_load_state()
         check("draft saved with a reference", "Draft FA/2026/0001 saved." in page.content())
-        check("draft page keeps the entered buyer", page.input_value("input[name=buyer]") == "Example Buyer Ltd")
+        check("draft page keeps the entered buyer", page.eval_on_selector("select[name=customer]", "e => e.selectedOptions[0].textContent").endswith("Example Buyer Ltd"))
         check("factory is locked once the reference exists", page.locator("select[name=factory]").is_disabled())
         shot(page, "16-draft-saved", full=True)
 
@@ -155,10 +171,10 @@ try:
 
         # Complete it, attach two files and submit
         page.fill("input[name=contract_number]", "SC-000123")
-        page.fill("input[name=product_name]", "Sample Product")
-        page.fill("input[name=delivery_date]", "2026-10-28")
+        choose(page, "product", "Sample Product")
+        page.fill("input[name=received_date]", ago(5))
         page.select_option("select[name=packing_type]", label="Pack")
-        page.fill("input[name=pack_size]", "Flexibag")
+        choose(page, "pack_size_option", "Flexibag")
         page.fill("input[name=affected_quantity]", "20")
         page.select_option("select[name=quantity_unit]", label="Metric Ton")
         page.select_option("select[name=transport_type]", label="Shipment - Container")
@@ -166,10 +182,12 @@ try:
         page.fill("input[name=container_number]", "ABCD1234567")
         page.fill("input[name=loading_port]", "Example Loading Port")
         page.fill("input[name=discharge_port]", "Example Discharge Port")
+        page.fill("input[name=loading_date]", ago(20))
+        page.fill("input[name=discharge_date]", ago(7))
         page.select_option("select[name=complaint_type]", label="Packaging")
         page.select_option("select[name=complaint_sub_type]", label="Packaging - Leaking")
         page.select_option("select[name=sample_sent]", label="No")
-        page.fill("textarea[name=description]", "Flexibag leaked during discharge; customer reports product loss at the receiving terminal.")
+        page.fill("textarea[name=issue_identified]", "Flexibag leaked during discharge; customer reports product loss at the receiving terminal.")
         page.fill("input[name=contact_person]", "Sample Contact")
         page.fill("input[name=contact_email]", "contact@example.com")
         page.select_option("select[name=complaint_method]", label="Email")

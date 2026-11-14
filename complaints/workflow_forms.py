@@ -1,11 +1,12 @@
 """Forms for the steps after submission."""
 
 from django import forms
+from django.utils import timezone
 
-from accounts.models import FactoryPIC, Role
+from accounts.models import Department, FactoryPIC, Role
 
 from .forms import MultipleFileField, validate_attachment
-from .models import Complaint, LabTest, Scar, Verification
+from .models import Complaint, LabTest, RoutingRule, Scar, Verification
 
 
 def _check_files(files):
@@ -27,13 +28,18 @@ class FilesMixin:
 
 class PICChoiceField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, entry):
-        return f"{entry.designation}: {entry.user} <{entry.user.email}>"
+        department = f" ({entry.department})" if entry.department_id else ""
+        return f"{entry.designation}{department}: {entry.user} <{entry.user.email}>"
 
 
 class AssignForm(FilesMixin, forms.Form):
     """Figure 3: choose one or more PICs of the factory, add remarks and files."""
 
     pics = PICChoiceField(queryset=FactoryPIC.objects.none(), widget=forms.CheckboxSelectMultiple, label="PICs")
+    department = forms.ModelChoiceField(
+        queryset=Department.objects.all(), required=False, label="Department",
+        help_text="The department that investigates. Its HOD reviews the findings. The routing table's choice is filled in.",
+    )  # fmt: skip
     remarks = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     attachments = MultipleFileField(required=False, label="Attachments")
 
@@ -41,7 +47,8 @@ class AssignForm(FilesMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["pics"].queryset = FactoryPIC.objects.filter(
             factory_id=complaint.factory_id, is_active=True, user__is_active=True
-        ).select_related("user")
+        ).select_related("user", "department")
+        self.fields["department"].initial = complaint.department_id or getattr(RoutingRule.department_for(complaint), "pk", None)
         if not self.is_bound:
             self.fields["pics"].initial = list(
                 self.fields["pics"].queryset.filter(user__in=[a.user_id for a in complaint.assignments.all()])
@@ -120,9 +127,16 @@ class LabForm(FilesMixin, forms.Form):
                 required=False, max_length=100, label=f"{test.name}: from retained sample",
                 initial=result.retained_sample if result else "",
             )  # fmt: skip
+        self.fields["acknowledged_on"].widget.attrs["max"] = timezone.localdate().isoformat()
         if lab and not self.is_bound:
             self.fields["acknowledged_on"].initial = lab.acknowledged_on
             self.fields["remarks"].initial = lab.remarks
+
+    def clean_acknowledged_on(self):
+        value = self.cleaned_data.get("acknowledged_on")
+        if value and value > timezone.localdate():
+            raise forms.ValidationError("The date cannot be in the future.")
+        return value
 
     def grid(self):
         """Rows for the template: (test, buyer field, retained field)."""
@@ -235,9 +249,16 @@ class VerificationForm(forms.ModelForm):
         self.action = action
         for field in self.fields.values():
             field.required = False
+        today = timezone.localdate().isoformat()
+        for name in ("first_verified_date", "second_verified_date"):
+            self.fields[name].widget.attrs["max"] = today  # the browser stops a future date; clean() stops it too
 
     def clean(self):
         cleaned = super().clean()
+        today = timezone.localdate()
+        for name in ("first_verified_date", "second_verified_date"):
+            if cleaned.get(name) and cleaned[name] > today:
+                self.add_error(name, "The date cannot be in the future.")
         if self.action == "close":
             if not cleaned.get("first_verified_date") or not cleaned.get("first_result", "").strip():
                 self.add_error("first_verified_date", "The first verified date and its result are needed to close the case.")

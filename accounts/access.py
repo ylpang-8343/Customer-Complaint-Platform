@@ -9,7 +9,7 @@ from django.db.models import Q
 
 from .models import Factory, Role
 
-FACTORY_STAFF_ROLES = {Role.PIC, Role.LAB, Role.HOD, Role.FM}
+FACTORY_STAFF_ROLES = {Role.PIC, Role.LAB, Role.HOD, Role.FM, Role.TRADER}  # see the factories they cover
 
 
 def factories_for(user):
@@ -18,8 +18,8 @@ def factories_for(user):
         return Factory.objects.none()
     if user.sees_all_factories:
         return Factory.objects.all()
-    if user.role in FACTORY_STAFF_ROLES and user.factory_id:
-        return Factory.objects.filter(pk=user.factory_id)
+    if user.role in FACTORY_STAFF_ROLES:
+        return Factory.objects.filter(pk__in=user.factory_ids())
     return Factory.objects.none()
 
 
@@ -30,6 +30,8 @@ def scope_to_user(queryset, user, factory_field="factory", lodger_field="lodged_
     if user.sees_all_factories:
         return queryset
     own = Q(**{lodger_field: user})
-    if user.role in FACTORY_STAFF_ROLES and user.factory_id:
-        return queryset.filter(Q(**{factory_field: user.factory_id}) | own)
+    if user.role in FACTORY_STAFF_ROLES:
+        factory_ids = user.factory_ids()
+        if factory_ids:
+            return queryset.filter(Q(**{f"{factory_field}__in": factory_ids}) | own)
     return queryset.filter(own)

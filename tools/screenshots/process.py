@@ -1,4 +1,6 @@
 """Walk one complaint through the whole process (steps 1 to 8) in a real browser and save screenshots."""
+import datetime
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +31,20 @@ for name in ("db.sqlite3",):
     (PROJECT / name).unlink(missing_ok=True)
 
 
+
+def ago(days):
+    """A date in the past: the form does not accept a date in the future."""
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+
+
+def choose(page, name, text):
+    """Pick the entry of a list (customer, product, pack size) whose label contains the text."""
+    value = page.eval_on_selector_all(
+        f"select[name={name}] option", "(els, t) => (els.find(e => e.textContent.includes(t)) || {}).value", text
+    )
+    page.select_option(f"select[name={name}]", value=value)
+
+
 def reset_demo_database():
     """Start from an empty database with the reference data and the demo users, and no uploaded files."""
     (PROJECT / "db.sqlite3").unlink(missing_ok=True)
@@ -40,7 +56,7 @@ def reset_demo_database():
 reset_demo_database()
 
 server = subprocess.Popen(
-    [PY, "manage.py", "runserver", "8766", "--noreload"], cwd=PROJECT, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
+    [PY, "manage.py", "runserver", "8766", "--noreload"], cwd=PROJECT, env={**os.environ, "AUTO_ASSIGN": "0"}, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
 )
 failures = []
 
@@ -85,12 +101,12 @@ try:
         ctx, page = sign_in("sales")
         page.goto(BASE + "/complaints/new/")
         page.select_option("select[name=factory]", label="Factory A")
-        page.fill("input[name=buyer]", "Example Buyer Ltd")
+        choose(page, "customer", "Example Buyer Ltd")
         page.fill("input[name=contract_number]", "SC-000123")
-        page.fill("input[name=product_name]", "Sample Product")
-        page.fill("input[name=delivery_date]", "2026-10-28")
+        choose(page, "product", "Sample Product")
+        page.fill("input[name=received_date]", ago(5))
         page.select_option("select[name=packing_type]", label="Pack")
-        page.fill("input[name=pack_size]", "Flexibag")
+        choose(page, "pack_size_option", "Flexibag")
         page.fill("input[name=affected_quantity]", "20")
         page.select_option("select[name=quantity_unit]", label="Metric Ton")
         page.select_option("select[name=transport_type]", label="Shipment - Container")
@@ -98,10 +114,12 @@ try:
         page.fill("input[name=container_number]", "ABCD1234567")
         page.fill("input[name=loading_port]", "Example Loading Port")
         page.fill("input[name=discharge_port]", "Example Discharge Port")
+        page.fill("input[name=loading_date]", ago(20))
+        page.fill("input[name=discharge_date]", ago(7))
         page.select_option("select[name=complaint_type]", label="Packaging")
         page.select_option("select[name=complaint_sub_type]", label="Packaging - Leaking")
         page.select_option("select[name=sample_sent]", label="Yes")
-        page.fill("textarea[name=description]", "Flexibag leaked during discharge; customer reports product loss at the receiving terminal.")
+        page.fill("textarea[name=issue_identified]", "Flexibag leaked during discharge; customer reports product loss at the receiving terminal.")
         page.fill("input[name=contact_person]", "Sample Contact")
         page.fill("input[name=contact_email]", "contact@example.com")
         page.select_option("select[name=complaint_method]", label="Email")
@@ -280,9 +298,9 @@ try:
         page.click("button[name=close]")
         page.wait_for_load_state()
         check("closing needs the first check", "needed to close the case" in page.content())
-        page.fill("input[name=first_verified_date]", "2026-12-15")
+        page.fill("input[name=first_verified_date]", (datetime.date.today() - datetime.timedelta(days=14)).isoformat())
         page.fill("textarea[name=first_result]", "No repeat of the leak in the next two shipments.")
-        page.fill("input[name=second_verified_date]", "2027-03-15")
+        page.fill("input[name=second_verified_date]", (datetime.date.today() - datetime.timedelta(days=2)).isoformat())
         page.fill("textarea[name=second_result]", "Supplier audit completed; pressure test in use.")
         page.fill("textarea[name=comment]", "Corrective action effective.")
         shot(page, "40-verify")

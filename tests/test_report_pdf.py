@@ -56,7 +56,7 @@ def test_the_report_has_every_section_of_a_complaint_that_went_through_the_proce
     text, pages = pdf_text(complaint_report_pdf(complaint, user_of("mr")))
     for heading in (
         "Customer Complaint Report", complaint.reference, "LODGED", "COMPLAINT", "TRANSPORT", "DESCRIPTION",
-        "CONTACT AT THE BUYER", "COORDINATOR SECTION (IMS)", "INVESTIGATION AND RESPONSE", "SCAR TO AN EXTERNAL PARTY",
+        "BUYER CONTACT", "COORDINATOR SECTION (IMS)", "INVESTIGATION AND RESPONSE", "SCAR TO AN EXTERNAL PARTY",
         "LABORATORY SECTION", "HOD DECISION", "REVIEW AND APPROVAL RECORDS", "REPLY TO THE CUSTOMER",
         "EFFECTIVENESS AND CLOSING", "DOCUMENTS", "HISTORY",
     ):  # fmt: skip
@@ -148,12 +148,12 @@ def test_the_audit_pack_holds_the_report_the_scar_the_reply_and_every_file(as_us
     names = names_in(data)
     assert f"{ref}/{ref}-report.pdf" in names
     assert any(n.startswith(f"{ref}/scar/SCAR-{ref}") and n.endswith(".pdf") for n in names)
-    assert f"{ref}/reply/reply-to-customer.txt" in names
+    assert f"{ref}/reply/Reply-{ref}.pdf" in names  # the reply is a document, like the report
     for expected in ("complaint-form/leak-photo.png", "investigation/photo.png", "lab/lab-report.pdf", "scar/returned.pdf"):
         assert f"{ref}/documents/{expected}" in names, expected
     archive = zipfile.ZipFile(io.BytesIO(data))
     assert archive.read(f"{ref}/documents/investigation/photo.png") == b"png-bytes"
-    assert b"we are sorry about the leak" in archive.read(f"{ref}/reply/reply-to-customer.txt")
+    assert "we are sorry about the leak" in pdf_text(archive.read(f"{ref}/reply/Reply-{ref}.pdf"))[0]
     assert pdf_text(archive.read(f"{ref}/{ref}-report.pdf"))[0].count(complaint.reference) >= 2
 
 

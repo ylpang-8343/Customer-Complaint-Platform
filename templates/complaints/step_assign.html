@@ -13,6 +13,8 @@
       {% else %}
         {% include "complaints/_auto.html" with label="Acknowledgement date" value="" note="set when you assign" %}
       {% endif %}
+      {% include "complaints/_field.html" with field=form.department %}
+      {% if complaint.department %}{% include "complaints/_auto.html" with label="Routed to" value=complaint.department note="by the routing table or the Coordinator" %}{% endif %}
       {% include "complaints/_field.html" with field=form.pics span=True %}
       {% if form.needs_lab %}<p class="footnote span-2">A sample was sent to the factory, so include the laboratory PIC: only laboratory staff can fill in the laboratory section.</p>{% endif %}
       {% include "complaints/_field.html" with field=form.remarks span=True %}

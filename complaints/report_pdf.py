@@ -186,10 +186,7 @@ def build_story(complaint):
 
     # 1-5: what the lodger entered (the same sections as the complaint page)
     for title, rows in summary_sections(c):
-        if title == "Description":
-            story += block(title, [_text_block(c.description)])
-        else:
-            story += block(title, [facts(rows)])
+        story += block(title, [facts(rows)])
 
     # Coordinator (IMS) section
     assigned = [f"{a.user} ({a.designation or 'PIC'})" for a in c.assignments.select_related("user")]
@@ -367,6 +364,38 @@ def complaint_report_pdf(complaint, generated_by=None):
     return buffer.getvalue()
 
 
+def reply_filename(complaint):
+    return f"Reply-{complaint.reference.replace('/', '-') or complaint.pk}.pdf"
+
+
+def reply_pdf(complaint):
+    """The reply that was sent to the customer, as a one-page document (more if the text is long)."""
+    reply = complaint.reply
+    buffer = BytesIO()
+    by = "" if complaint.is_imported else f" by {reply.sent_by}"
+    footer = safe(f"BEST Group Customer Complaint Platform · {complaint.reference} · Reply sent {when(reply.sent_at)}{by}")
+    canvas_class = type("ReplyCanvas", (NumberedCanvas,), {"footer_text": footer})
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=15 * mm,
+        bottomMargin=20 * mm,
+        title=safe(f"Reply to the customer {complaint.reference}"),
+        author="BEST Group Customer Complaint Platform",
+    )
+    story = [
+        Table([[para("Reply to the customer", TITLE), para(complaint.reference, REFERENCE)]], colWidths=[PAGE_WIDTH * 0.6, PAGE_WIDTH * 0.4]),
+        Spacer(1, 4 * mm),
+        *facts([("To", reply.to_email or "the customer"), ("Sent", when(reply.sent_at) + by), ("Subject", reply.subject)]),
+        Spacer(1, 5 * mm),
+        para(reply.body),
+    ]
+    doc.build(story, canvasmaker=canvas_class)
+    return buffer.getvalue()
+
+
 # --- The audit pack: the report and every document, in one zip ---------------------------------------------------
 
 
@@ -392,9 +421,7 @@ def audit_pack(complaint, generated_by=None):
             archive.writestr(f"{safe_ref}/scar/SCAR-{safe_ref}-{scar.pk}.pdf", scar_pdf(scar))
         reply = getattr(complaint, "reply", None)
         if reply:
-            by = "" if complaint.is_imported else f" by {reply.sent_by}"
-            text = f"To: {reply.to_email}\nSent: {when(reply.sent_at)}{by}\nSubject: {reply.subject}\n\n{reply.body}\n"
-            archive.writestr(f"{safe_ref}/reply/reply-to-customer.txt", text)
+            archive.writestr(f"{safe_ref}/reply/{reply_filename(complaint)}", reply_pdf(complaint))
         used = {}
         for attachment in complaint.attachments.all():
             folder = {Attachment.Section.LODGING: "complaint-form"}.get(attachment.section, attachment.section)

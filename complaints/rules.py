@@ -14,14 +14,24 @@ SHIPMENT_CONTAINER = "shipment_container"
 LOCAL_BULK = "local_bulk"
 LOCAL_CONTAINER = "local_container"
 
-# The transport fields that open for each transport type (field g).
+LOCAL_TYPES = (LOCAL_BULK, LOCAL_CONTAINER)
+
+# The transport fields that open for each transport type (field g). A shipment has a loading date and a discharge
+# date; a local delivery has one delivery date.
 TRANSPORT_FIELDS = {
-    SHIPMENT_BULK: ("vessel_name",),
-    SHIPMENT_CONTAINER: ("vessel_name", "container_number"),
-    LOCAL_BULK: ("vehicle_number",),
-    LOCAL_CONTAINER: ("vehicle_number", "container_number"),
+    SHIPMENT_BULK: ("vessel_name", "loading_date", "discharge_date"),
+    SHIPMENT_CONTAINER: ("vessel_name", "container_number", "loading_date", "discharge_date"),
+    LOCAL_BULK: ("vehicle_number", "delivery_date"),
+    LOCAL_CONTAINER: ("vehicle_number", "container_number", "delivery_date"),
 }
-ALL_TRANSPORT_FIELDS = ("vessel_name", "vehicle_number", "container_number")
+ALL_TRANSPORT_FIELDS = (
+    "vessel_name", "vehicle_number", "container_number", "loading_date", "discharge_date", "delivery_date",
+)  # fmt: skip
+DATE_FIELDS = ("loading_date", "discharge_date", "delivery_date")
+
+
+def is_local(transport_type):
+    return transport_type in LOCAL_TYPES
 
 # Fields that are always mandatory on submission (labels are shown with an asterisk).
 MANDATORY_FIELDS = (
@@ -29,17 +39,17 @@ MANDATORY_FIELDS = (
     "buyer",
     "contract_number",
     "product_name",
-    "delivery_date",
     "packing_type",
     "affected_quantity",
     "quantity_unit",
     "transport_type",
     "loading_port",
     "discharge_port",
-    "description",
+    "issue_identified",
     "complaint_type",
     "sample_sent",
     "contact_email",
+    "received_date",
 )
 # Fields that become mandatory because of an earlier choice.
 CONDITIONAL_MANDATORY_FIELDS = (

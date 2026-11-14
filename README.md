@@ -21,7 +21,9 @@ Open http://127.0.0.1:8000/. Every demo user has the password `demo-pass-123`:
 | `mr` | Coordinator (MR). Can open Settings (the admin site) to maintain complaint types, lab tests, complaint methods and each factory's PIC list. |
 | `management` | Top management (all factories) |
 | `sales` | Lodger outside the factories |
-| `fa.fm`, `fa.hod`, `fa.pic`, `fa.lab`, `fa.labmgr` | Factory A staff: FM, HOD, a PIC, a laboratory PIC and the lab manager. The same pattern exists for `fb` to `fe`. |
+| `fa.fm`, `fa.hod`, `fa.pic`, `fa.lab`, `fa.labmgr`, `fa.qahod`, `fa.oppic`, `fa.ophod`, `fa.shippic`, `fa.shiphod` | Factory A staff: FM, the Production HOD and PIC, the QA laboratory PIC, lab manager and HOD, the Operation PIC and HOD, the Shipping PIC and HOD. The same pattern exists for `fb` to `fe`. |
+| `alan.trader` | A trader who handles Factories A and B: sees those two, read-only |
+| `group.shipping` | The Group Shipping PIC, who covers every factory |
 
 Create a real administrator with `manage.py createsuperuser`. Run `manage.py seed` (without
 `--demo`) on a production install to load the factories, complaint types and lab tests.
@@ -38,6 +40,10 @@ in turn. In development the emails are printed in the server console.
 The top of every complaint shows a progress bar (Submitted, Assignment, Investigation, HOD review, FM approval,
 Customer reply, Effectiveness and closing) with the date each stage was done and who the complaint is waiting
 for now. When the HOD, FM or Coordinator sends it back, the marker moves back to Investigation and says why.
+
+## Access, routing and the lists (demo feedback)
+
+A user can be given several factories in the admin panel (Settings > Users: role, department and **Factories covered**), so a trader or a group PIC sees exactly those factories and nothing else. When a complaint is submitted, the **routing table** (Settings > Routing rules) sends it to a department by itself: Quality to QA, Packaging to Production, Logistics and Documentation to Operation (local) or Shipping (shipment), Others to the Coordinator. The department's PICs are emailed with only the Coordinator copied, and the Coordinator can reassign. Set `AUTO_ASSIGN=false` to switch it off. The buyer, product (code or SKU) and pack size on the form come from lists that the Coordinator uploads from a spreadsheet on the **Master data** page.
 
 ## Reminders and notifications
 
@@ -62,11 +68,11 @@ management open it from the menu (Notifications), and each complaint shows its o
 
 **Dashboard** (menu: Dashboard) shows the figures of the complaints a user may see, with one filter row for factories and the
 lodged period: the summary tiles, complaints by type, where the complaints are in the process, valid complaints by type,
-open complaint aging, where each open complaint is waiting and who for, the reasons for invalid and deleted complaints, and the
-latest complaints.
+open complaint aging, complaints by factory, where each open complaint is waiting and who for (a page at a time), a short reason for invalid and deleted complaints with a link, and the
+latest complaints. The filter row also takes status, complaint category, buyer, product, result and a search text, and sets the page size (10 to start with).
 
 **Complaint log** (menu: Complaint log) lists every complaint in the columns of the current log, in the same order, with the
-CAR number left out because the complaint reference replaces it. **Export to Excel** downloads the same table as an `.xlsx`
+CAR number left out because the complaint reference replaces it. **Export to Excel** downloads the same table, with the same filters as the screen, as an `.xlsx`
 file, followed by the summary and a line saying who exported what. Both follow the user's role and factory, so nobody exports
 more than they can see. Drafts are never counted.
 
@@ -84,7 +90,7 @@ files (WhiteNoise) and logging to the console; `DATABASE_URL` selects PostgreSQL
 ## PDF report, audit pack and import of past complaints
 
 **PDF report.** Every complaint has a **PDF report** button: the whole record in one document for filing and for FSSC and ISO
-audits, with page numbers and who printed it. **Audit pack** is a zip with that PDF, the SCARs as sent, the reply and every
+audits, with page numbers and who printed it. **Audit pack** is a zip with that PDF, the SCARs as sent, the reply (as a PDF) and every
 attached file in a folder for each section. The proposal asks for the layout of the current Customer Complaint Report; that
 report was not supplied, so the sections follow what the proposal says it holds (see `complaints/report_pdf.py` to change them).
 
@@ -110,6 +116,7 @@ Taken from the running app with the demo data (`docs/img/`, made by `tools/scree
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
 | Dashboard, the complaint log and its Excel file, with the filter row and the phone view | `50` to `56` |
 | The demo site: the sign-in page that lists the demo users, and sending due reminders from the Notifications page | `67` to `70` |
+| The feedback of the demo: the shipment and local forms, a complaint assigned by the routing table, the Master data page and an upload, My complaints with the new columns, the dashboard, the reply as a file, a trader's list | `71` to `79` |
 | PDF report, audit pack and the import of past complaints: the Import page, a file with mistakes, the corrected file, the result, an imported complaint, three pages of the PDF report, the phone view | `57` to `66` |
 | Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
@@ -123,7 +130,7 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 283 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 367 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 

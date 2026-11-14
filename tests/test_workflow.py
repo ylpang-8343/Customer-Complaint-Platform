@@ -11,7 +11,7 @@ from accounts.models import Factory, FactoryPIC
 from complaints import people, workflow
 from complaints.models import Attachment, Complaint, ComplaintEvent, LabTest, Scar
 from complaints.workflow import WorkflowError
-from tests.test_complaints import as_user, lodge  # noqa: F401  (fixtures and helpers)
+from tests.test_complaints import as_user, days_ago, lodge  # noqa: F401  (fixtures and helpers)
 
 S = Complaint.Status
 
@@ -582,13 +582,13 @@ def test_the_coordinator_records_the_checks_and_closes_the_case(as_user, user_of
     refused = client.post(url, {"close": "1"})
     assert "needed to close the case" in refused.content.decode() and fresh(complaint).status == S.RESPONSE_SENT
 
-    client.post(url, {"save": "1", "first_verified_date": "2026-12-01", "first_result": "No repeat"})
+    client.post(url, {"save": "1", "first_verified_date": days_ago(30), "first_result": "No repeat"})
     assert fresh(complaint).status == S.RESPONSE_SENT and fresh(complaint).verification.first_result == "No repeat"
-    client.post(url, {"close": "1", "first_verified_date": "2026-12-01", "first_result": "No repeat", "second_verified_date": "2027-03-01", "second_result": "Still fine", "comment": "Effective"})
+    client.post(url, {"close": "1", "first_verified_date": days_ago(30), "first_result": "No repeat", "second_verified_date": days_ago(10), "second_result": "Still fine", "comment": "Effective"})
     complaint = fresh(complaint)
     verification = complaint.verification
     assert complaint.status == S.CLOSED and verification.closed_by == user_of("mr") and verification.closed_at
-    assert verification.second_verified_date == datetime.date(2027, 3, 1) and verification.closing_comment == "Effective"
+    assert verification.second_verified_date == datetime.date.fromisoformat(days_ago(10)) and verification.closing_comment == "Effective"
     assert actions(user_of("mr"), complaint) == ["complaint_delete"]
 
 
@@ -596,7 +596,7 @@ def test_a_second_check_before_the_first_is_refused(as_user, user_of):
     complaint = replied(as_user, user_of)
     response = as_user("mr").post(
         reverse("complaint_verify", args=[complaint.pk]),
-        {"save": "1", "first_verified_date": "2026-12-01", "first_result": "x", "second_verified_date": "2026-11-01"},
+        {"save": "1", "first_verified_date": days_ago(30), "first_result": "x", "second_verified_date": days_ago(60)},
     )
     assert "cannot be before the first" in response.content.decode()
 
@@ -607,7 +607,7 @@ def test_not_effective_sends_the_case_back_to_the_pic(as_user, user_of):
     url = reverse("complaint_verify", args=[complaint.pk])
     assert "Say why" in client.post(url, {"not_effective": "1"}).content.decode()
     mail.outbox.clear()
-    client.post(url, {"not_effective": "1", "first_verified_date": "2026-12-01", "first_result": "Repeated", "comment": "Same defect again"})
+    client.post(url, {"not_effective": "1", "first_verified_date": days_ago(30), "first_result": "Repeated", "comment": "Same defect again"})
     complaint = fresh(complaint)
     assert complaint.status == S.INVESTIGATION
     assert mail.outbox[0].to == ["fa.pic@example.com"] and "Same defect again" in mail.outbox[0].body
@@ -715,7 +715,7 @@ def test_waiting_for_me_and_the_waiting_column(as_user, user_of):
     html = as_user("fa.hod").get(reverse("home")).content.decode()
     assert "<strong class=\"mine\">You</strong>" in html
     html = as_user("fa.pic").get(reverse("home")).content.decode()
-    assert ">HOD<" in html
+    assert f"HOD - {user_of('fa.hod').get_full_name()}" in html  # the role and the person
     assert people.responsible_users(complaint) == [user_of("fa.hod")]
     only_mine = as_user("fa.hod").get(reverse("home"), {"mine": "on"}).content.decode()
     assert complaint.reference in only_mine

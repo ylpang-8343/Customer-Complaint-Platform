@@ -5,7 +5,7 @@
   const form = document.getElementById("complaint-form");
   const config = document.getElementById("form-config");
   if (!form || !config) return;
-  const { transport, typeDetails } = JSON.parse(config.textContent);
+  const { transport, allTransport, local, typeDetails } = JSON.parse(config.textContent);
 
   const control = (name) => form.elements[name];
   const setVisible = (name, visible) => {
@@ -14,14 +14,22 @@
   };
 
   function update() {
-    // e. Packing type: Pack opens the pack size
-    setVisible("pack_size", control("packing_type").value === "pack");
+    // e. Packing type: Pack opens the pack size (a list, or text before the list is filled in)
+    const isPack = control("packing_type").value === "pack";
+    setVisible("pack_size_option", isPack);
+    setVisible("pack_size", isPack);
 
-    // g. Transport type opens the vessel, vehicle and container fields it needs
-    const opened = transport[control("transport_type").value] || [];
-    ["vessel_name", "vehicle_number", "container_number"].forEach((name) =>
-      setVisible(name, opened.includes(name))
-    );
+    // g. Transport type opens the vessel, vehicle, container and date fields it needs
+    const transportType = control("transport_type").value;
+    const opened = transport[transportType] || [];
+    allTransport.forEach((name) => setVisible(name, opened.includes(name)));
+
+    // The ports are called the place of loading and the destination for a local delivery
+    const isLocal = local.includes(transportType);
+    form.querySelectorAll("label[data-label-local]").forEach((label) => {
+      const text = isLocal ? label.dataset.labelLocal : label.dataset.labelDefault;
+      if (label.firstChild && label.firstChild.nodeType === Node.TEXT_NODE) label.firstChild.nodeValue = text;
+    });
 
     // j. Complaint type filters the sub-types; Others opens a short-details field
     const typeId = control("complaint_type").value;

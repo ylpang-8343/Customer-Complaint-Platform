@@ -5,6 +5,7 @@ from django.urls import path
 
 from complaints import views as complaint_views
 from complaints import import_views as imports
+from complaints import masterdata_views as masterdata
 from complaints import report_views as reports
 from complaints import workflow_views as steps
 
@@ -21,6 +22,9 @@ urlpatterns = [
     path("dashboard/", reports.dashboard, name="dashboard"),
     path("log/", reports.complaint_log, name="complaint_log"),
     path("log/export/", reports.log_export, name="log_export"),
+    path("masterdata/", masterdata.masterdata_home, name="masterdata_home"),
+    path("masterdata/<slug:slug>/template.xlsx", masterdata.masterdata_template, name="masterdata_template"),
+    path("masterdata/<slug:slug>/upload/", masterdata.masterdata_upload, name="masterdata_upload"),
     path("import/", imports.import_home, name="import_home"),
     path("import/template.xlsx", imports.import_template, name="import_template"),
     path("import/<int:pk>/", imports.import_preview, name="import_preview"),
@@ -37,6 +41,7 @@ urlpatterns = [
     path("complaints/<int:pk>/fm/", steps.complaint_fm, name="complaint_fm"),
     path("complaints/<int:pk>/reply/", steps.complaint_reply, name="complaint_reply"),
     path("complaints/<int:pk>/verify/", steps.complaint_verify, name="complaint_verify"),
+    path("complaints/<int:pk>/reply.pdf", steps.complaint_reply_pdf, name="complaint_reply_pdf"),
     path("complaints/<int:pk>/report.pdf", steps.complaint_pdf, name="complaint_pdf"),
     path("complaints/<int:pk>/audit-pack.zip", steps.complaint_audit_pack, name="complaint_audit_pack"),
     path("scars/<int:pk>/pdf/", steps.scar_document, name="scar_pdf"),

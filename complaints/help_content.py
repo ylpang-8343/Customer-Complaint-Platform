@@ -8,6 +8,7 @@ GUIDES = [
     ("coordinator", "Coordinator (MR)", "Receives each submitted complaint, assigns the PICs, checks that the action worked and closes the case. Sets the reminder days, reads the notifications and loads past complaints.", "Management Representative"),
     ("pic", "PICs and laboratory", "Investigate a complaint, fill in the laboratory section, issue a SCAR if the cause is external, and reply to the customer.", "PIC · Lab staff"),
     ("approver", "HOD and Factory Manager", "The HOD decides whether a complaint is valid; the FM approves or rejects the response.", "HOD · FM"),
+    ("trader", "Traders and group PICs", "See the complaints of the factories assigned to you, across more than one factory or entity. A trader reads and follows; a group PIC also investigates when assigned.", "Trader · Group Shipping / Operation PIC"),
     ("management", "Top management", "See the complaints of every factory, the dashboard and the complaint log, and where each complaint is waiting.", "Group management"),
 ]
 
@@ -19,6 +20,7 @@ GUIDE_FOR_ROLE = {
     Role.HOD: "approver",
     Role.FM: "approver",
     Role.MANAGEMENT: "management",
+    Role.TRADER: "trader",
 }
 
 # (question, answer paragraphs)
@@ -33,10 +35,14 @@ TASKS = [
     (
         "Which fields must I fill in before I can submit?",
         [
-            "The fields marked * : factory, buyer, contract number, product, delivery date, packing type, affected quantity and unit, "
-            "transport type, loading port, port of discharge, complaint type, sample sent, description and the buyer's email address.",
-            "Some fields open depending on your choices: the pack size for Pack, the vessel, vehicle or container for the transport type, "
+            "The fields marked * : factory, buyer (customer code), contract number, product (product code or SKU), complaint received date, packing type, "
+            "affected quantity and unit, transport type, loading and destination, complaint type, sample sent, what the issue is, and the buyer's email address.",
+            "Some fields open depending on your choices: the pack size for Pack; for a shipment the vessel, container, loading date and discharge date; "
+            "for a local delivery the vehicle and the delivery date (the places are then called Place of loading and Destination); "
             "the sub-type for the complaint type, and short details for Others.",
+            "Buyer, product and pack size are chosen from lists kept by the Coordinator, so a name is always the same. No date can be in the future. "
+            "The complaint received date is the day the buyer told us; response time and ageing are counted from it.",
+            "Describe the problem in five parts: the issue identified, the findings by the customer, the test result by the customer, what the customer requests, and any other information.",
         ],
     ),
     (
@@ -55,7 +61,8 @@ TASKS = [
     (
         "Who can see my complaint?",
         [
-            "A draft is visible only to you. After you submit, the Coordinator and top management can see it, and so can the staff of the factory it was lodged for.",
+            "A draft is visible only to you. After you submit, the Coordinator and top management can see it, and so can the staff of the factory it was lodged for. "
+            "Someone who works for more than one factory, such as a trader or a group Shipping PIC, sees every factory assigned to them and no other. The IT administrator sets this in the admin panel.",
             "A HOD or FM who is away is replaced by their deputy, who can see and act on that factory's complaints until the HOD or FM is back.",
         ],
     ),
@@ -68,20 +75,22 @@ TASKS = [
     (
         "How do I find a complaint?",
         [
-            "Use the filters on My complaints: factory, status, the date it was lodged, or a search for the reference, buyer, product or contract number.",
-            "Tick Waiting for my action to see only the complaints that need you. The Waiting for column shows who each complaint is with.",
+            "Use the filters on My complaints: factory, status, complaint category, buyer, product, the date it was lodged, or a search for the reference, buyer, product or contract number. "
+            "Show chooses how many complaints are on a page: 10 to start with, or 25, 50 or 100.",
+            "Tick Waiting for my action to see only the complaints that need you. The Waiting for column names who each complaint is with, for example PIC - Ahmad, and Days Open counts the days since the complaint was received.",
         ],
     ),
     (
         "Who is told when I submit?",
         [
-            "The Coordinator receives an email with a summary and a link to the complaint.",
+            "The platform sends the complaint to the right department by itself, using the routing table: Quality goes to QA, Packaging to Production, Logistics and Documentation to Operation for a local delivery or Shipping for a shipment, and Others to the Coordinator. The PICs of that department are emailed, and the Coordinator is copied and can reassign it.",
+            "If no routing is set for the complaint, the Coordinator receives an email with a summary and a link to the complaint.",
         ],
     ),
     (
         "As Coordinator, how do I assign a complaint?",
         [
-            "Open the complaint from My complaints and choose Assign PICs. Tick one or more PICs of that factory, add remarks and files, and choose Assign and send.",
+            "Most complaints are assigned for you by the routing table, which you keep in Settings (Routing rules). Open the complaint from My complaints and choose Change PICs to send it to another department or other people. To assign one yourself, choose Assign PICs, pick the department, tick one or more PICs, add remarks and files, and choose Assign and send.",
             "Each PIC is emailed the reference number, a PDF summary and a link. The platform records you as the person who received it and the date and time. If a sample was sent, include the laboratory PIC.",
             "Use Change PICs to add or remove a PIC later: only newly added PICs are emailed. Delete marks a complaint Deleted with a reason; it stays in the log.",
         ],
@@ -125,7 +134,7 @@ TASKS = [
         "As a PIC, how do I reply to the customer?",
         [
             "After the FM approves, choose Reply to customer. The email follows the standard template: the shipment details, then the investigation summary, root cause assessment, conclusion and corrective and preventive actions from your findings, and a signature with the name and position of the FM who approved it and the company. A part you left empty is left out. Edit anything, add files and send it to the email address on the complaint.",
-            "The platform keeps a copy, sets the status to Customer Response Sent and tells the HOD, FM and Coordinator.",
+            "The platform keeps a copy, sets the status to Customer Response Sent and tells the HOD, FM and Coordinator. The complaint page shows the reply as a PDF file to download, not the whole email.",
         ],
     ),
     (
@@ -139,14 +148,14 @@ TASKS = [
         "What does the Dashboard show?",
         [
             "The Dashboard counts the complaints you are allowed to see: the total, how many are valid, invalid, under investigation and deleted, and how many valid complaints are in progress or closed. A valid complaint is In progress until the Coordinator closes the case.",
-            "Below the figures: complaints by type, where the complaints are in the process (Pending SCAR from Supplier and Customer Response Sent are stages), valid complaints by type, and how long the open complaints have been open. A table lists where each open complaint is waiting and who it is waiting for, and another gives the reason for every invalid or deleted complaint.",
-            "Choose factories and a lodged-from and lodged-to date above, then Apply. Everything on the page follows the same filter. Top management and the Coordinator can choose any factory; factory staff see their own.",
+            "Below the figures: complaints by factory, complaints by type, where the complaints are in the process (Pending SCAR from Supplier and Customer Response Sent are stages), valid complaints by type, and how long the open complaints have been open. A table lists where each open complaint is waiting and who it is waiting for, a page at a time, and another gives a short reason for every invalid or deleted complaint, with a link to the complaint for the full text.",
+            "Choose factories, a lodged-from and lodged-to date, and if you wish the status, complaint category, buyer, product, result or a search text, then Apply. Everything on the page follows the same filters, and Show sets the page size (10 to start with). Top management and the Coordinator can choose any factory; factory staff see their own.",
         ],
     ),
     (
         "How do I get the complaint log in Excel?",
         [
-            "Open Complaint log in the menu. It lists every complaint in the columns of the current log, oldest first, with the summary under the table. Choose the factories and dates, then Export to Excel.",
+            "Open Complaint log in the menu. It lists every complaint in the columns of the current log, oldest first, with the summary under the table. Choose the factories, dates and any of the other filters, then Export to Excel: the file holds exactly the complaints the screen shows.",
             "The file has the same columns in the same order, and the summary under the table. The CAR number is not used: the complaint reference takes its place. Only complaints you are allowed to see are included.",
         ],
     ),
@@ -154,7 +163,14 @@ TASKS = [
         "How do I get a complaint as a PDF for an audit?",
         [
             "Open the complaint and choose PDF report. It holds everything in the record: the complaint, the Coordinator section, the investigation and response, any SCAR, the laboratory section, the HOD decision, the review and approval records, the reply to the customer, the verification and closing, the list of documents and the full history, with page numbers and who printed it.",
-            "Choose Audit pack for a zip file with that PDF, the SCARs as sent, the reply and every attached file, in a folder for each section. This is what to hand to an FSSC or ISO auditor. Only complaints you are allowed to see can be downloaded.",
+            "Choose Audit pack for a zip file with that PDF, the SCARs as sent, the reply (as a PDF) and every attached file, in a folder for each section. This is what to hand to an FSSC or ISO auditor. Only complaints you are allowed to see can be downloaded.",
+        ],
+    ),
+    (
+        "As Coordinator, how do I keep the buyer, product and pack size lists?",
+        [
+            "Choose Master data in the menu. For customers, products and pack sizes, download the template, fill in one row for each entry (a customer code and name, a product code or SKU and name, a pack size) and upload it. A row whose code is already there updates that entry; a new one is added; nothing is deleted. Set Active to No to stop a name being offered. The file is checked first, and nothing is saved until every row is correct.",
+            "In Settings you also keep the departments, the routing table and each factory's PICs, with their department.",
         ],
     ),
     (

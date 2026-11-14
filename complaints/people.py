@@ -4,6 +4,8 @@ A HOD or FM who is away (``away_until``) is replaced by their deputy: the deputy
 the emails go to the deputy instead.
 """
 
+from django.db.models import Q
+
 from accounts.models import Factory, Role, User
 
 from .models import Assignment, Complaint
@@ -40,29 +42,49 @@ def is_lab_staff(user, complaint):
 
 
 def _hods(factory_id):
-    return User.objects.filter(role=Role.HOD, factory_id=factory_id, is_active=True)
+    """The HODs who cover the factory: their own factory, or one assigned to them."""
+    return (
+        User.objects.filter(role=Role.HOD, is_active=True)
+        .filter(Q(factory_id=factory_id) | Q(assigned_factories=factory_id))
+        .distinct()
+    )
 
 
 def hod_factories(user):
     """Factories whose HOD role the user holds, directly or as the deputy of a HOD who is away."""
     ids = set()
-    if user.role == Role.HOD and user.factory_id:
-        ids.add(user.factory_id)
+    if user.role == Role.HOD:
+        ids |= user.factory_ids()
     for hod in User.objects.filter(role=Role.HOD, deputy=user, is_active=True):
         if hod.is_away():
-            ids.add(hod.factory_id)
+            ids |= hod.factory_ids()
     return ids
 
 
+def hod_users(complaint):
+    """The HODs who review this complaint: those of the department it is routed to, else every HOD of the factory.
+
+    A complaint with no department, or a department that has no HOD at the factory, goes to all of the factory's HODs.
+    """
+    candidates = list(_hods(complaint.factory_id))
+    if complaint.department_id:
+        in_department = [hod for hod in candidates if hod.dept_id == complaint.department_id]
+        if in_department:
+            return in_department
+    return candidates
+
+
 def hods(complaint):
-    """The HODs to ask: every HOD of the factory, or the deputy of one who is away."""
-    return _unique(hod.acting_user() for hod in _hods(complaint.factory_id))
+    """The HODs to ask: the department's HOD (or the deputy of one who is away)."""
+    return _unique(hod.acting_user() for hod in hod_users(complaint))
 
 
 def _fm_of(factory):
     if factory.factory_manager_id:
         return [factory.factory_manager]
-    return list(User.objects.filter(role=Role.FM, factory=factory, is_active=True))
+    return list(
+        User.objects.filter(role=Role.FM, is_active=True).filter(Q(factory=factory) | Q(assigned_factories=factory)).distinct()
+    )
 
 
 def fm_factories(user):
@@ -80,7 +102,7 @@ def fms(complaint):
 
 
 def can_act_as_hod(user, complaint):
-    return complaint.factory_id in hod_factories(user)
+    return any(hod.pk == user.pk or (hod.is_away() and hod.deputy_id == user.pk) for hod in hod_users(complaint))
 
 
 def can_act_as_fm(user, complaint):
@@ -119,6 +141,18 @@ def responsible_users(complaint):
     if status == STATUS.FM_REVIEW:
         return fms(complaint)
     return []
+
+
+def waiting_text(complaint):
+    """Who the complaint is waiting for, by role and name: "PIC - Ahmad, Lim", or "" when nobody is."""
+    role = responsible_role(complaint)
+    if not role:
+        return ""
+    names = [user.get_full_name() or user.username for user in responsible_users(complaint)]
+    if not names:
+        return role
+    shown = ", ".join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else "")
+    return f"{role.split(' (')[0]} - {shown}"
 
 
 def assigned_complaint_ids(user):

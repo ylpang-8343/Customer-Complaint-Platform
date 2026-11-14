@@ -22,7 +22,7 @@ from .summary import summary_sections
 
 logger = logging.getLogger(__name__)
 
-PAGE_SIZE = 25
+PAGE_SIZE = 10  # the default number of complaints on a page; the user can choose more
 NOTIFICATION_PAGE_SIZE = 50
 NOTIFICATION_VIEWERS = (Role.COORDINATOR, Role.MANAGEMENT)  # who may read the notification log
 
@@ -35,7 +35,11 @@ def home(request):
     waiting = workflow.waiting_for_me(request.user)
     if filters.is_valid():
         complaints = filters.apply(complaints, waiting)
-    page = Paginator(complaints.order_by("-created_at", "-id"), PAGE_SIZE).get_page(request.GET.get("page"))
+    chosen = filters.cleaned_data.get("page_size") if filters.is_valid() else ""
+    size = int(chosen) if chosen else PAGE_SIZE
+    page = Paginator(complaints.order_by("-created_at", "-id"), size).get_page(request.GET.get("page"))
+    for complaint in page.object_list:
+        complaint.waiting_text = people.waiting_text(complaint)
 
     query = request.GET.copy()
     query.pop("page", None)
@@ -47,7 +51,7 @@ def home(request):
             "page": page,
             "waiting_ids": set(visible.filter(waiting).values_list("pk", flat=True)),
             "filters": filters,
-            "filtered": any(request.GET.get(name) for name in filters.fields),
+            "filtered": any(request.GET.get(name) for name in filters.fields if name != "page_size"),
             "querystring": query.urlencode(),
             "totals": {
                 "visible": visible.count(),
@@ -120,6 +124,8 @@ def complaint_detail(request, pk):
 def _form_config():
     return {
         "transport": {key: list(fields) for key, fields in rules.TRANSPORT_FIELDS.items()},
+        "allTransport": list(rules.ALL_TRANSPORT_FIELDS),
+        "local": list(rules.LOCAL_TYPES),
         "typeDetails": {
             str(t.pk): True for t in ComplaintType.objects.filter(is_active=True, requires_details=True)
         },
@@ -135,7 +141,9 @@ def _render_form(request, form):
             "form": form,
             "complaint": complaint,
             "attachments": complaint.attachments.all() if complaint else [],
-            "mandatory": set(rules.MANDATORY_FIELDS),
+            # The fields shown with an asterisk: the always-mandatory ones, the lists that stand for them, and the
+            # dates of a shipment or a local delivery (each is shown only when it applies).
+            "mandatory": set(rules.MANDATORY_FIELDS) | {"customer", "product", *rules.DATE_FIELDS},
             "form_config": _form_config(),
             "lodger": complaint.lodged_by if complaint else request.user,
             "lodger_department": complaint.lodger_department if complaint else request.user.department,
@@ -180,8 +188,7 @@ def complaint_form(request, pk=None):
 
     if missing:
         # Keep what was entered as a draft, and show what is still missing.
-        for name, message in missing.items():
-            form.add_error(name, message)
+        form.add_missing_errors(missing)
         form.add_error(None, "The draft is saved. Fill in the fields marked * to submit it to the Coordinator.")
         form.lock_factory()
         return _render_form(request, form)
@@ -191,8 +198,19 @@ def complaint_form(request, pk=None):
     except ValidationError as error:  # the rules changed between the check and the save
         form.add_error(None, error)
         return _render_form(request, form)
-    messages.success(request, f"Complaint {complaint.reference} was submitted to the Coordinator.")
-    _notify_coordinator(request, complaint)
+    routed = workflow.auto_assign(complaint)
+    if routed:
+        department, users, notified = routed
+        messages.success(
+            request,
+            f"Complaint {complaint.reference} was submitted and assigned to the {department} department: "
+            f"{', '.join(str(user) for user in users)}. The Coordinator is copied and can reassign it.",
+        )
+        if not notified:
+            messages.warning(request, "The assignment email could not be sent to everyone. Please tell the PICs it is waiting.")
+    else:
+        messages.success(request, f"Complaint {complaint.reference} was submitted to the Coordinator.")
+        _notify_coordinator(request, complaint)
     return redirect("complaint_detail", pk=complaint.pk)
 
 

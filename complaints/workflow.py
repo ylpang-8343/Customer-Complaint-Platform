@@ -12,9 +12,12 @@ step, except where the email *is* the step (the SCAR and the reply to the custom
 import logging
 from pathlib import Path
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+
+from accounts.models import FactoryPIC
 
 from . import emails, people
 from .models import (
@@ -26,6 +29,7 @@ from .models import (
     Investigation,
     LabResult,
     LabSection,
+    RoutingRule,
     Scar,
     Verification,
 )
@@ -156,7 +160,9 @@ def waiting_for_me(user):
         )
     )
     if hod_ids := people.hod_factories(user):
-        parts.append(Q(factory_id__in=hod_ids, status=STATUS.HOD_REVIEW))
+        # A HOD reviews the complaints of their department only, so each one is checked.
+        reviewing = Complaint.objects.filter(factory_id__in=hod_ids, status=STATUS.HOD_REVIEW, deleted_at__isnull=True)
+        parts.append(Q(pk__in=[c.pk for c in reviewing if people.can_act_as_hod(user, c)]))
     if fm_ids := people.fm_factories(user):
         parts.append(Q(factory_id__in=fm_ids, status=STATUS.FM_REVIEW))
     query = parts[0]
@@ -218,8 +224,11 @@ def _require(allowed, message="You cannot do this now."):
 # --- Step 3: the Coordinator assigns the PICs ---------------------------------------------
 
 
-def assign(complaint, actor, pic_entries, remarks="", files=()):
-    """Choose the PICs. Only PICs who are new to the complaint are emailed."""
+def assign(complaint, actor, pic_entries, remarks="", files=(), department=None):
+    """Choose the PICs. Only PICs who are new to the complaint are emailed.
+
+    The department (which HOD reviews) is the one chosen, else the routing table's, else the first PIC's.
+    """
     _require(can_assign(actor, complaint), "Only the Coordinator can assign a complaint that has been submitted.")
     pic_entries = list(pic_entries)
     if not pic_entries:
@@ -245,6 +254,12 @@ def assign(complaint, actor, pic_entries, remarks="", files=()):
             complaint.received_by = actor
             complaint.acknowledged_at = timezone.now()
         complaint.coordinator_remarks = remarks
+        complaint.department = (
+            department
+            or RoutingRule.department_for(complaint)
+            or next((entry.department for entry in pic_entries if entry.department_id), None)
+            or complaint.department
+        )
         store_files(complaint, files, actor, Attachment.Section.COORDINATOR)
         names = ", ".join(f"{entry.user} ({entry.designation})" for entry in pic_entries)
         _move(complaint, actor, Action.ASSIGNED, STATUS.INVESTIGATION if first_time else None, comment=names)
@@ -252,6 +267,39 @@ def assign(complaint, actor, pic_entries, remarks="", files=()):
     if not new_users:
         return True
     return _notify(emails.notify_pics_of_assignment, complaint, new_users, actor, remarks)
+
+
+def auto_assign(complaint):
+    """On submission, send the complaint to the department the routing table names (proposal feedback: auto assign).
+
+    The PICs of that department at the factory are assigned and emailed, with the Coordinator copied. Returns
+    (department, the users assigned, whether they were all emailed), or None when the complaint stays with the
+    Coordinator: auto assign is off, no rule covers it (for example Others), or the department has no PIC at the factory.
+    """
+    if not getattr(settings, "AUTO_ASSIGN", True) or complaint.status != STATUS.SUBMITTED:
+        return None
+    department = RoutingRule.department_for(complaint)
+    if department is None:
+        return None
+    entries = list(
+        FactoryPIC.objects.filter(factory_id=complaint.factory_id, department=department, is_active=True, user__is_active=True)
+        .select_related("user")
+    )
+    if not entries:
+        return None
+    with transaction.atomic():
+        _lock(complaint)
+        if complaint.status != STATUS.SUBMITTED:  # someone else got there first
+            return None
+        for entry in entries:
+            Assignment.objects.create(complaint=complaint, user=entry.user, designation=entry.designation)
+        complaint.department = department
+        complaint.acknowledged_at = timezone.now()
+        names = ", ".join(f"{entry.user} ({entry.designation})" for entry in entries)
+        _move(complaint, None, Action.ASSIGNED, STATUS.INVESTIGATION, comment=f"Assigned automatically to {department}: {names}")
+    users = [entry.user for entry in entries]
+    notified = _notify(emails.notify_pics_of_assignment, complaint, users, None, "")
+    return department, users, notified
 
 
 def delete(complaint, actor, reason):
