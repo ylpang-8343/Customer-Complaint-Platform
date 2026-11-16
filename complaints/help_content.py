@@ -29,7 +29,7 @@ TASKS = [
         "How do I lodge a new complaint?",
         [
             "Choose New complaint in the menu. Choose the factory first: it sets the reference number, for example FA/2026/0001.",
-            "Fill in the form and choose Save draft at any time, or Submit to Coordinator when it is complete.",
+            "Fill in the form and choose Save draft at any time, or Submit when it is complete.",
         ],
     ),
     (

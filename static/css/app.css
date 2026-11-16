@@ -263,6 +263,11 @@ button:disabled, .button:disabled { opacity: .55; cursor: not-allowed; }
 .demo-card { margin-top: 1rem; font-size: .85rem; }
 .demo-card h2 { font-size: 1rem; color: var(--brown); margin-bottom: .5rem; }
 .demo-card table td { padding: .35rem .4rem; }
+.login-card.demo-card { width: min(44rem, 94vw); }
+.demo-users { font-size: .8rem; }
+.demo-users thead th { text-align: left; color: var(--muted); font-weight: 600; padding: .3rem .4rem; }
+.demo-users tr.group th { text-align: left; background: var(--field); color: var(--brown); padding: .4rem .4rem; font-size: .78rem; }
+.demo-users td:first-child { white-space: nowrap; }
 
 /* Narrow screens: the sidebar becomes a bar across the top */
 @media (max-width: 52rem) {

@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
-from accounts.models import Factory
+from accounts.models import Factory, FactoryPIC
 from complaints import masterdata, people, reporting, workflow
 from complaints.models import Complaint, ComplaintSubType, ComplaintType, Customer, PackSize, Product
 from complaints.report_pdf import audit_pack, reply_pdf
@@ -314,3 +314,46 @@ def test_the_lab_acknowledgement_date_cannot_be_in_the_future(as_user, user_of):
     response = as_user("fa.lab").post(reverse("complaint_lab", args=[complaint.pk]), {"acknowledged_on": tomorrow})
     assert "cannot be in the future" in response.content.decode()
     assert not hasattr(fresh(complaint), "lab") or fresh(complaint).lab.acknowledged_on is None
+
+
+# --- The third round: the Submit button, a failed change of PICs, the labelled logins -----------------------------------
+
+
+def test_the_form_button_says_submit(as_user):
+    html = as_user("sales").get(reverse("complaint_new")).content.decode()
+    assert 'name="submit" class="button primary">Submit</button>' in html and "Submit to Coordinator" not in html
+
+
+def test_the_history_says_submitted_not_submitted_to_the_coordinator(as_user, user_of):
+    complaint = submitted(as_user)
+    html = as_user("mr").get(reverse("complaint_detail", args=[complaint.pk])).content.decode()
+    assert "Submitted to the Coordinator" not in html and "Submitted</strong>" in html
+
+
+def test_changing_to_pics_without_a_laboratory_pic_says_so_at_the_top_and_changes_nothing(as_user, user_of):
+    # The case from the tester: a sample was sent, the complaint was routed to QA, and the Coordinator ticked an Operation PIC only.
+    complaint = assigned(as_user, user_of, "fa.lab", "fa.labmgr", sample_sent="True")
+    before = sorted(a.user.username for a in complaint.assignments.all())
+    entry = FactoryPIC.objects.get(factory__code="FA", user__username="fa.oppic")
+    response = as_user("mr").post(reverse("complaint_assign", args=[complaint.pk]), {"pics": [entry.pk], "department": entry.department_id, "remarks": "CHANGE PIC"})
+    html = response.content.decode()
+    assert response.status_code == 200 and "Nothing was changed" in html and "[laboratory]" in html
+    assert sorted(a.user.username for a in fresh(complaint).assignments.all()) == before
+
+
+def test_changing_the_pics_works_when_the_laboratory_pic_is_ticked_too(as_user, user_of):
+    complaint = assigned(as_user, user_of, "fa.lab", "fa.labmgr", sample_sent="True")
+    entries = FactoryPIC.objects.filter(factory__code="FA", user__username__in=["fa.oppic", "fa.lab"])
+    department = entries.get(user__username="fa.oppic").department_id
+    response = as_user("mr").post(reverse("complaint_assign", args=[complaint.pk]), {"pics": [e.pk for e in entries], "department": department, "remarks": "CHANGE PIC"})
+    assert response.status_code == 302
+    changed = fresh(complaint)
+    assert sorted(a.user.username for a in changed.assignments.all()) == ["fa.lab", "fa.oppic"]
+    assert changed.department.name == "Operation"
+
+
+def test_the_laboratory_pic_is_marked_in_the_list(as_user, user_of):
+    complaint = assigned(as_user, user_of, "fa.lab", sample_sent="True")
+    html = as_user("mr").get(reverse("complaint_assign", args=[complaint.pk])).content.decode()
+    assert re.search(r"Lab PIC \(QA\) \[laboratory\]: Sample Lab PIC FA", html)
+    assert "Operation PIC (Operation): Sample Operation PIC FA" in html and "[laboratory]: Sample Operation" not in html

@@ -147,7 +147,7 @@ try:
         page.fill("textarea[name=remarks]", "Please investigate and check the retained sample.")
         page.click("button:has-text('Assign and send')")
         page.wait_for_load_state()
-        check("a laboratory PIC is required for a sample complaint", "choose at least one laboratory PIC" in page.content())
+        check("a laboratory PIC is required for a sample complaint", "a laboratory PIC must stay on this complaint" in page.content() and "Nothing was changed" in page.content())
         shot(page, "27-assign-needs-lab")
         page.get_by_label(re.compile("Lab PIC")).check()
         page.click("button:has-text('Assign and send')")

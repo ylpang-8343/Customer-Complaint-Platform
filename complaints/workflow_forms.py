@@ -29,7 +29,8 @@ class FilesMixin:
 class PICChoiceField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, entry):
         department = f" ({entry.department})" if entry.department_id else ""
-        return f"{entry.designation}{department}: {entry.user} <{entry.user.email}>"
+        laboratory = " [laboratory]" if entry.user.role == Role.LAB else ""
+        return f"{entry.designation}{department}{laboratory}: {entry.user} <{entry.user.email}>"
 
 
 class AssignForm(FilesMixin, forms.Form):
@@ -60,7 +61,11 @@ class AssignForm(FilesMixin, forms.Form):
         cleaned = super().clean()
         pics = cleaned.get("pics")
         if pics and self.needs_lab and not any(p.user.role == Role.LAB for p in pics):
-            self.add_error("pics", "A sample was sent, so choose at least one laboratory PIC to fill in the laboratory section.")
+            self.add_error(
+                "pics",
+                "A sample was sent to the factory, so a laboratory PIC must stay on this complaint: tick the PIC marked "
+                "[laboratory] as well, because only laboratory staff can fill in the laboratory section.",
+            )
         return cleaned
 
 

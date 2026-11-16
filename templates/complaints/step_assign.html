@@ -4,6 +4,9 @@
 {% block step %}
 <form method="post" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
+  {% if form.pics.errors or form.department.errors %}
+  <div class="alert error" role="alert"><strong>Nothing was changed.</strong> The PICs are still the same. {% for error in form.pics.errors %}{{ error }} {% endfor %}{% for error in form.department.errors %}{{ error }} {% endfor %}</div>
+  {% endif %}
   <section class="card">
     <h2 class="section-title"><span class="badge">A</span> Coordinator section</h2>
     <div class="grid">

@@ -1,5 +1,6 @@
 """Putting the platform on a host: settings from the environment, the demo site, and the Render files."""
 
+import re
 import datetime
 import json
 import os
@@ -13,6 +14,7 @@ from django.core.management import CommandError, call_command
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import User
 from complaints import reporting
 from complaints.models import Complaint, NotificationLog
 from tests.test_complaints import as_user  # noqa: F401  (fixture)
@@ -125,6 +127,18 @@ def test_the_demo_sign_in_page_lists_the_demo_users(client, db, settings):
     assert "Demo site" in html and "demo-pass-123" in html
     for username in ("sales", "mr", "fa.pic", "fa.lab", "fa.hod", "fa.fm", "management"):
         assert f"<code>{username}</code>" in html
+
+
+def test_every_demo_login_is_listed_and_labelled_with_its_role_and_department(client, seeded, settings):
+    """The tester asked which login is the lab HOD: every demo user of Factory A, and the multi-factory ones, are on the page."""
+    settings.DEMO_MODE = True
+    html = client.get(reverse("login")).content.decode()
+    listed = set(re.findall(r"<code>([\w.]+)</code>", html))
+    for username in ("fa.qahod", "fa.ophod", "fa.shiphod", "fa.oppic", "fa.shippic", "fa.labmgr", "alan.trader", "group.shipping"):
+        assert username in listed
+    assert all(User.objects.filter(username=name).exists() for name in listed)  # nothing is listed that cannot sign in
+    row = re.search(r"<code>fa.qahod</code></td><td>(.*?)</td><td>(.*?)</td>", html)
+    assert row.group(1) == "HOD (lab HOD)" and row.group(2) == "QA"
 
 
 # --- Demo data -----------------------------------------------------------------------------------------------------------

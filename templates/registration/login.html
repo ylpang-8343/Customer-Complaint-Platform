@@ -18,15 +18,31 @@
   <section class="card login-card demo-card">
     <h2>Demo site</h2>
     <p>This is a demonstration with fictional data. Sign in with any of these users, all with the password <strong>{{ demo_password }}</strong>:</p>
-    <table class="list">
+    <div class="table-wrap">
+    <table class="list demo-users">
+      <thead><tr><th>Username</th><th>Role</th><th>Department</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>sales</code></td><td>Lodger: raises complaints</td></tr>
-        <tr><td><code>mr</code></td><td>Coordinator (MR): assigns, closes, Settings, Import</td></tr>
-        <tr><td><code>fa.pic</code>, <code>fa.lab</code></td><td>PIC and laboratory, Factory A</td></tr>
-        <tr><td><code>fa.hod</code>, <code>fa.fm</code></td><td>HOD and Factory Manager, Factory A</td></tr>
-        <tr><td><code>management</code></td><td>Top management: sees every factory</td></tr>
+        <tr class="group"><th colspan="4">Raising and running complaints (every factory)</th></tr>
+        <tr><td><code>sales</code></td><td>Lodger</td><td>Sales</td><td>Raises complaints</td></tr>
+        <tr><td><code>mr</code></td><td>Coordinator (MR)</td><td>-</td><td>Reassigns PICs, closes, Settings, Master data, Import</td></tr>
+        <tr><td><code>management</code></td><td>Top management</td><td>-</td><td>Sees every factory, read-only</td></tr>
+        <tr class="group"><th colspan="4">Factory A (Factories B to E: the same names starting fb, fc, fd, fe)</th></tr>
+        <tr><td><code>fa.fm</code></td><td>Factory Manager</td><td>-</td><td>Approves or rejects the response</td></tr>
+        <tr><td><code>fa.pic</code></td><td>PIC</td><td>Production</td><td>Packaging complaints</td></tr>
+        <tr><td><code>fa.hod</code></td><td>HOD</td><td>Production</td><td>Reviews Packaging complaints</td></tr>
+        <tr><td><code>fa.lab</code></td><td>PIC, laboratory</td><td>QA</td><td>Quality complaints; fills in the laboratory section</td></tr>
+        <tr><td><code>fa.labmgr</code></td><td>PIC, lab manager</td><td>QA</td><td>Quality complaints</td></tr>
+        <tr><td><code>fa.qahod</code></td><td>HOD (lab HOD)</td><td>QA</td><td>Reviews Quality complaints</td></tr>
+        <tr><td><code>fa.oppic</code></td><td>PIC</td><td>Operation</td><td>Local delivery: Logistics and Documentation</td></tr>
+        <tr><td><code>fa.ophod</code></td><td>HOD</td><td>Operation</td><td>Reviews those complaints</td></tr>
+        <tr><td><code>fa.shippic</code></td><td>PIC</td><td>Shipping</td><td>Shipment: Logistics and Documentation</td></tr>
+        <tr><td><code>fa.shiphod</code></td><td>HOD</td><td>Shipping</td><td>Reviews those complaints</td></tr>
+        <tr class="group"><th colspan="4">More than one factory</th></tr>
+        <tr><td><code>alan.trader</code></td><td>Trader</td><td>Trading</td><td>Sees Factories A and B only, read-only</td></tr>
+        <tr><td><code>group.shipping</code></td><td>PIC (group)</td><td>Shipping</td><td>Shipping PIC of every factory</td></tr>
       </tbody>
     </table>
+    </div>
     <p class="footnote">Files and changes may be reset when the demo is redeployed. Use no real data.</p>
   </section>
   {% endif %}

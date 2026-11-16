@@ -550,7 +550,7 @@ class ComplaintEvent(models.Model):
     """One line of the complaint's history: what happened, who did it, and any comment."""
 
     class Action(models.TextChoices):
-        SUBMITTED = "submitted", "Submitted to the Coordinator"
+        SUBMITTED = "submitted", "Submitted"
         ASSIGNED = "assigned", "Assigned to PIC(s)"
         SCAR_ISSUED = "scar_issued", "SCAR issued"
         SCAR_RETURNED = "scar_returned", "Returned SCAR uploaded"

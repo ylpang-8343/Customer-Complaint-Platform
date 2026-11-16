@@ -16,14 +16,23 @@ python -m venv .venv
 
 Open http://127.0.0.1:8000/. Every demo user has the password `demo-pass-123`:
 
-| Username | Role |
-|---|---|
-| `mr` | Coordinator (MR). Can open Settings (the admin site) to maintain complaint types, lab tests, complaint methods and each factory's PIC list. |
-| `management` | Top management (all factories) |
-| `sales` | Lodger outside the factories |
-| `fa.fm`, `fa.hod`, `fa.pic`, `fa.lab`, `fa.labmgr`, `fa.qahod`, `fa.oppic`, `fa.ophod`, `fa.shippic`, `fa.shiphod` | Factory A staff: FM, the Production HOD and PIC, the QA laboratory PIC, lab manager and HOD, the Operation PIC and HOD, the Shipping PIC and HOD. The same pattern exists for `fb` to `fe`. |
-| `alan.trader` | A trader who handles Factories A and B: sees those two, read-only |
-| `group.shipping` | The Group Shipping PIC, who covers every factory |
+| Username | Role | Department | What it does |
+|---|---|---|---|
+| `sales` | Lodger | Sales | Raises complaints |
+| `mr` | Coordinator (MR) | - | Reassigns PICs, closes, Settings (the admin site), Master data, Import |
+| `management` | Top management | - | Sees every factory, read-only |
+| `fa.fm` | Factory Manager | - | Approves or rejects the response |
+| `fa.pic` | PIC | Production | Packaging complaints |
+| `fa.hod` | HOD | Production | Reviews Packaging complaints |
+| `fa.lab` | PIC, laboratory | QA | Quality complaints; fills in the laboratory section |
+| `fa.labmgr` | PIC, lab manager | QA | Quality complaints |
+| `fa.qahod` | HOD (the lab HOD) | QA | Reviews Quality complaints |
+| `fa.oppic`, `fa.ophod` | PIC, HOD | Operation | Local deliveries: Logistics and Documentation |
+| `fa.shippic`, `fa.shiphod` | PIC, HOD | Shipping | Shipments: Logistics and Documentation |
+| `alan.trader` | Trader | Trading | Sees Factories A and B only, read-only |
+| `group.shipping` | PIC (group) | Shipping | Shipping PIC of every factory |
+
+The same pattern exists for Factories B to E (`fb.pic`, `fc.hod`, ...). The sign-in page of the demo site shows this table too.
 
 Create a real administrator with `manage.py createsuperuser`. Run `manage.py seed` (without
 `--demo`) on a production install to load the factories, complaint types and lab tests.
@@ -130,7 +139,7 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 367 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 373 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 

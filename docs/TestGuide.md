@@ -38,20 +38,22 @@ python -m venv .venv
 
 Open <http://127.0.0.1:8000/>. Every demo user has the password `demo-pass-123`.
 
-| Username | Role | Used for |
-|---|---|---|
-| `sales` | Lodger outside the factories | Lodging complaints |
-| `mr` | Coordinator (MR) | Assigning, closing, deleting, Settings, notifications |
-| `management` | Top management | Read-only view of every factory, dashboard, notifications |
-| `fa.pic` | PIC, Factory A | Investigation, SCAR, reply to the customer |
-| `fa.lab` | Laboratory PIC, Factory A | Laboratory section |
-| `fa.labmgr` | Lab manager (a PIC), Factory A | A second PIC who is not always assigned |
-| `fa.hod` | HOD, Factory A | HOD review |
-| `fa.fm` | FM, Factory A | FM approval |
-| `fb.pic`, `fb.hod`, `fb.fm` | The same roles in Factory B | Testing that factories are kept apart |
-| `fa.qahod`, `fa.oppic`, `fa.ophod`, `fa.shippic`, `fa.shiphod` | HODs and PICs of the QA, Operation and Shipping departments, Factory A | Automatic assignment by the routing table |
-| `alan.trader` | Trader for Factories A and B | A user with several factories, read-only |
-| `group.shipping` | Group Shipping PIC, every factory | A PIC across factories |
+| Username | Role | Department | Used for |
+|---|---|---|---|
+| `sales` | Lodger outside the factories | Sales | Lodging complaints |
+| `mr` | Coordinator (MR) | - | Reassigning, closing, deleting, Settings, Master data, notifications |
+| `management` | Top management | - | Read-only view of every factory, dashboard, notifications |
+| `fa.fm` | Factory Manager, Factory A | - | FM approval |
+| `fa.pic` | PIC, Factory A | Production | Packaging complaints; investigation, SCAR, reply to the customer |
+| `fa.hod` | HOD, Factory A | Production | Reviews Packaging complaints |
+| `fa.lab` | Laboratory PIC, Factory A | QA | Quality complaints; the laboratory section |
+| `fa.labmgr` | Lab manager (a PIC), Factory A | QA | A second QA PIC |
+| `fa.qahod` | HOD, Factory A (**the lab HOD**) | QA | Reviews Quality complaints |
+| `fa.oppic`, `fa.ophod` | PIC and HOD, Factory A | Operation | Local Logistics and Documentation complaints |
+| `fa.shippic`, `fa.shiphod` | PIC and HOD, Factory A | Shipping | Shipment Logistics and Documentation complaints |
+| `alan.trader` | Trader for Factories A and B | Trading | A user with several factories, read-only |
+| `group.shipping` | Group Shipping PIC, every factory | Shipping | A PIC across factories |
+| `fb.pic`, `fb.hod`, `fb.fm` and so on | The same roles in Factory B | | Testing that factories are kept apart |
 
 Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
@@ -69,7 +71,7 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
 They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 367 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 373 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
@@ -83,11 +85,11 @@ They take about two minutes (the PDF and import tests are the slowest) and use a
 | `tests/test_reminders.py` | 23 | The notification log (including failures), when reminders are due and to whom, repeats, per-type days, deputies, retry after a failure, the Overdue flags |
 | `tests/test_reports.py` | 28 | Dashboard figures and filters, scope by role, the log columns, the Excel file (columns, dates, summary, scope, formula-like text) |
 | `tests/test_report_pdf.py` | 13 | The PDF report (every section, page numbers, laboratory section only with a sample, deleted banner, unsupported characters, very long text, who may download) and the audit pack (contents, duplicate file names, missing files) |
-| `tests/test_deploy.py` | 21 | Putting it on a host: the settings read from the environment (production mode, `DATABASE_URL`, Render's address, HTTPS and cookies), the health check, the demo sign-in page, `seed --demo --complaints`, sending reminders from the page, an administrator from the environment, and the Render files |
+| `tests/test_deploy.py` | 22 | Putting it on a host: the settings read from the environment (production mode, `DATABASE_URL`, Render's address, HTTPS and cookies), the health check, the demo sign-in page, `seed --demo --complaints`, sending reminders from the page, an administrator from the environment, and the Render files |
 | `tests/test_reply_email.py` | 15 | The reply to the customer: the subject and body follow `docs/emailTemplate.md` (parts in order, sections left out when empty, vessel or vehicle, greeting, signature, company name), and the investigation summary and conclusion are entered, kept, shown to reviewers and in the PDF |
 | `tests/test_email_delivery.py` | 20 | Which mail service the settings choose, "Not delivered" when no mail server is set up (the warning, the label, the filter), the test email, and a mail service over HTTPS with the network call replaced (the request, a refusal and its reason) |
 | `tests/test_access_routing.py` | 51 | Access by factory for staff, traders and group PICs (and what changes when the admin changes a user's factories), the routing table, automatic assignment and its emails (only the Coordinator copied), the Coordinator reassigning, the department's HOD reviewing |
-| `tests/test_feedback_ui.py` | 31 | The form labels and the five-part description, the master data upload (templates, add and update, a bad file saves nothing, who may upload), My complaints (ten a page, the page size, the columns, the person each complaint waits for, Days Open, filters), the dashboard by factory, short reasons and paging, the log and export filters, the reply as a PDF and in the audit pack, no future dates on the later steps |
+| `tests/test_feedback_ui.py` | 36 | The form labels and the five-part description, the master data upload (templates, add and update, a bad file saves nothing, who may upload), My complaints (ten a page, the page size, the columns, the person each complaint waits for, Days Open, filters), the dashboard by factory, short reasons and paging, the log and export filters, the reply as a PDF and in the audit pack, no future dates on the later steps |
 | `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
@@ -139,7 +141,7 @@ Expected: *Pack size* opens only for Pack. Shipment - Bulk shows the vessel, the
 - [ ] Pass
 
 **T05 Submitting is blocked until the mandatory fields are filled** (`sales`)
-1. Open the draft and choose **Submit to Coordinator** with most fields empty.
+1. Open the draft and choose **Submit** with most fields empty.
 
 Expected: you stay on the form, every missing field is marked in red, and a message says the draft is saved. The mandatory fields are the factory, buyer (customer code), contract number, product (product code or SKU), complaint received date, packing type, affected quantity and unit, transport type, loading and destination (and the dates that go with them), complaint type, sample sent, the issue identified and the buyer's email address. A date in the future is refused, and the date pickers stop at today. The description has five parts; only the issue identified is mandatory. *Buyer contact* (not "Contact at the buyer") holds the contact and, next to *Complaint method*, the complaint received date.
 
@@ -148,7 +150,7 @@ Expected: you stay on the form, every missing field is marked in red, and a mess
 - [ ] Pass
 
 **T06 Complete, attach and submit** (`sales`, then `mr`)
-1. Fill in every mandatory field (set *Sample sent to factory* to **Yes**), attach a PDF or picture, and choose **Submit to Coordinator**.
+1. Fill in every mandatory field (set *Sample sent to factory* to **Yes**), attach a PDF or picture, and choose **Submit**.
 2. Download the attached file from the complaint. Try to attach a `.exe`.
 3. Try to open the edit page of the submitted complaint.
 
@@ -468,9 +470,9 @@ Expected: `fa.lab` sees Factory A only; `fb.hod` Factory B only; `alan.trader` F
 **T35 Automatic assignment by the routing table** (`sales`, then `fa.pic`, `fa.oppic`, `fa.shippic`, `mr`)
 1. As `sales`, submit a *Packaging* complaint, then a *Quality* one, then a *Logistic* complaint with *Local Delivery*, then one with *Shipment*, then *Others*.
 2. Read each confirmation message and the emails in the console. As `mr` open each complaint.
-3. As `mr`, choose **Change PICs** on one and send it to another department.
+3. As `mr`, choose **Change PICs** on one and send it to another department. Do it once on a complaint where *Sample sent* is Yes, ticking only an Operation PIC, then again ticking the laboratory PIC as well.
 
-Expected: Packaging goes to Production (`fa.pic`), Quality to QA (`fa.lab`), the local Logistic complaint to Operation (`fa.oppic`), the shipment to Shipping (`fa.shippic`; `group.shipping` is listed too), and *Others* waits for the Coordinator. Each PIC is emailed with only the Coordinator copied, and the complaint shows *Routed to* the department. The HOD who reviews it is the HOD of that department. The Coordinator can reassign, and the routing table is kept in Settings > Routing rules.
+Expected: Packaging goes to Production (`fa.pic`), Quality to QA (`fa.lab`), the local Logistic complaint to Operation (`fa.oppic`), the shipment to Shipping (`fa.shippic`; `group.shipping` is listed too), and *Others* waits for the Coordinator. Each PIC is emailed with only the Coordinator copied, and the complaint shows *Routed to* the department. The HOD who reviews it is the HOD of that department. The Coordinator can reassign, and the routing table is kept in Settings > Routing rules. When a sample was sent, a laboratory PIC (marked *[laboratory]*) has to stay on the complaint: ticking only an Operation PIC shows *Nothing was changed* in red at the top, and ticking the laboratory PIC as well saves the change. The button on the form is **Submit**.
 
 ![Shipment form](img/71-form-shipment.png) ![Assigned](img/72-auto-assigned.png) ![Local form](img/73-form-local.png)
 
