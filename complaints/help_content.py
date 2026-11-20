@@ -169,7 +169,7 @@ TASKS = [
     (
         "As Coordinator, how do I keep the buyer, product and pack size lists?",
         [
-            "Choose Master data in the menu. For customers, products and pack sizes, download the template, fill in one row for each entry (a customer code and name, a product code or SKU and name, a pack size) and upload it. A row whose code is already there updates that entry; a new one is added; nothing is deleted. Set Active to No to stop a name being offered. The file is checked first, and nothing is saved until every row is correct.",
+            "Choose Master data in the menu. For customers, products and pack sizes, download the template, fill in one row for each entry (a customer code and name, a product code or SKU and name, a pack size) and upload it. A row whose code is already there updates that entry; a new one is added; nothing is deleted. Set Active to No to stop a name being offered. To remove an entry, choose Manage the list: you can search it, set it inactive or delete it (an entry that complaints use cannot be deleted, so set it inactive). The file is checked first, and nothing is saved until every row is correct.",
             "In Settings you also keep the departments, the routing table and each factory's PICs, with their department.",
         ],
     ),
@@ -184,7 +184,7 @@ TASKS = [
     (
         "What reminders will I get?",
         [
-            "When a complaint has waited for you longer than 3 days, the platform emails you a reminder. The Coordinator can set a different number of days for each complaint type in Settings.",
+            "When a complaint has waited for you longer than 3 days, the platform emails you a reminder by itself: it checks every hour while the site is in use, so nobody has to press a button. The Coordinator can set a different number of days for each complaint type in Settings.",
             "You are reminded again every 3 days until you act. Acting, which moves the complaint to the next stage, starts the count again. The reminder goes to whoever the complaint is waiting for: the Coordinator, the PIC (also while a SCAR is pending), the HOD or the FM. If a HOD or FM is away, their deputy is reminded.",
             "On My complaints, an Overdue tag with the number of days shows next to a complaint that has waited longer than its reminder days. Tick Overdue to list them.",
         ],

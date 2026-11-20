@@ -15,6 +15,12 @@ def no_auto_assign_unless_asked(settings):
 
 
 @pytest.fixture(autouse=True)
+def no_background_reminders_unless_asked(settings):
+    # The automatic reminder check starts a thread; the tests of it turn this on and run the check themselves.
+    settings.AUTO_REMINDERS = False
+
+
+@pytest.fixture(autouse=True)
 def temporary_media(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path / "media"
 

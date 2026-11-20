@@ -3,7 +3,7 @@
 {% block page_title %}Master Data — Customer Complaints{% endblock %}
 {% block scope %}Coordinator — the lists the complaint form chooses from. Upload a list so a name is never typed twice or mistyped.{% endblock %}
 {% block content %}
-<p>The complaint form offers these lists instead of free text. Download the template, fill in one row for each entry and upload it. A row whose code is already in the list <strong>updates</strong> that entry; a new one is <strong>added</strong>. Nothing is deleted: set <em>Active</em> to No to stop a name being offered (old complaints keep it). The file is checked first and saved all together (up to {{ max_rows }} rows, {{ max_mb }} MB; .xlsx or .csv).</p>
+<p>The complaint form offers these lists instead of free text. Download the template, fill in one row for each entry and upload it. A row whose code is already in the list <strong>updates</strong> that entry; a new one is <strong>added</strong>. An upload never deletes: use <strong>Manage the list</strong> to delete an entry, or to set it inactive so it is no longer offered (old complaints keep it). The file is checked first and saved all together (up to {{ max_rows }} rows, {{ max_mb }} MB; .xlsx or .csv).</p>
 
 {% for card in cards %}
 <section class="card">
@@ -27,6 +27,7 @@
     <input type="file" name="file" accept=".xlsx,.csv" required aria-label="File to upload for {{ card.dataset.title }}">
     <button type="submit" class="button primary">Upload and save</button>
     <a class="button" href="{% url 'masterdata_template' card.dataset.slug %}">Download the template</a>
+    <a class="button" href="{% url 'masterdata_manage' card.dataset.slug %}">Manage the list (delete, deactivate)</a>
     <a class="button" href="{% url card.admin_url %}">Edit single entries</a>
   </form>
 </section>

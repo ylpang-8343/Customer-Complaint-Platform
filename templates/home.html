@@ -22,11 +22,13 @@
   <form method="get" class="filters">
     <div><label for="{{ filters.factory.id_for_label }}">Factory</label>{{ filters.factory }}</div>
     <div><label for="{{ filters.status.id_for_label }}">Status</label>{{ filters.status }}</div>
+    <div class="daterange">
+    <div><label for="{{ filters.date_from.id_for_label }}">From</label>{{ filters.date_from }}</div>
+      <div><label for="{{ filters.date_to.id_for_label }}">To</label>{{ filters.date_to }}</div>
+    </div>
     <div><label for="{{ filters.complaint_type.id_for_label }}">Complaint category</label>{{ filters.complaint_type }}</div>
     <div><label for="{{ filters.customer.id_for_label }}">Buyer</label>{{ filters.customer }}</div>
     <div><label for="{{ filters.product.id_for_label }}">Product</label>{{ filters.product }}</div>
-    <div><label for="{{ filters.date_from.id_for_label }}">From</label>{{ filters.date_from }}</div>
-    <div><label for="{{ filters.date_to.id_for_label }}">To</label>{{ filters.date_to }}</div>
     <div class="grow"><label for="{{ filters.q.id_for_label }}">Search</label>{{ filters.q }}</div>
     <div class="check"><label>{{ filters.mine }} {{ filters.mine.label }}</label></div>
     <div class="check"><label>{{ filters.overdue }} {{ filters.overdue.label }}</label></div>

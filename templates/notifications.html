@@ -27,7 +27,10 @@
 <section class="card">
   <form method="post" action="{% url 'run_reminders' %}" class="inline-form">
     {% csrf_token %}
-    <p><strong>{{ due_count }}</strong> reminder{{ due_count|pluralize }} {{ due_count|pluralize:"is,are" }} due now. Reminders normally go out once a day (<code>manage.py send_reminders</code>); use the button on a host that has no scheduler, or to send them at once.</p>
+    <p><strong>{{ due_count }}</strong> reminder{{ due_count|pluralize }} {{ due_count|pluralize:"is,are" }} due now.
+      {% if auto.enabled %}<strong>Reminders are sent automatically</strong>: the platform checks every {{ auto.minutes }} minutes while the site is awake{% if auto.last_run_at %} (last check {{ auto.last_run_at|date:"j M Y, H:i" }}: {{ auto.last_result }}){% endif %}, so a PIC is reminded without anyone pressing a button. Use the button to send them at once.
+      {% else %}Automatic reminders are switched off on this site (<code>AUTO_REMINDERS</code>). Use the button, or run <code>manage.py send_reminders</code> from the host's scheduler.{% endif %}
+      {% if auto.token_set %}An outside scheduler can also start the check at <code>/tasks/reminders/?token=...</code>, which wakes a sleeping site.{% endif %}</p>
     <button type="submit" class="button primary"{% if not due_count %} disabled{% endif %}>Send due reminders now</button>
   </form>
 </section>
@@ -76,6 +79,6 @@
     {% if page.has_next %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
   </p>
   {% endif %}
-  <p class="footnote">A failed email did not stop the step it belonged to. Tell the people concerned that the complaint is waiting for them. Reminders are sent by <code>manage.py send_reminders</code>, once a day.</p>
+  <p class="footnote">A failed email did not stop the step it belonged to. Tell the people concerned that the complaint is waiting for them. Reminders are sent automatically (see the top of this page), and the Coordinator can send them at once.</p>
 </section>
 {% endblock %}

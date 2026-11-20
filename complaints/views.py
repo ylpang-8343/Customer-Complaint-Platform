@@ -1,12 +1,16 @@
+import hmac
 import logging
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.core.paginator import Paginator
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from accounts.access import factories_for
@@ -16,6 +20,7 @@ from . import people, rules, workflow
 from .progress import progress
 from . import emails, reminders
 from .forms import ComplaintFilterForm, ComplaintForm, NotificationFilterForm
+from . import scheduler
 from .help_content import GUIDE_FOR_ROLE, GUIDES, TASKS
 from .models import Attachment, Complaint, ComplaintType, NotificationLog
 from .summary import summary_sections
@@ -273,6 +278,7 @@ def notification_log(request):
             "delivers": emails.delivers_email(),
             "can_run_reminders": people.is_coordinator(request.user),
             "due_count": len(reminders.due_reminders()) if people.is_coordinator(request.user) else 0,
+            "auto": scheduler.status(),
         },
     )
 
@@ -324,3 +330,20 @@ def run_reminders(request):
     if failed:
         messages.warning(request, f"{failed} could not be sent. See the failed emails below; they are tried again next time.")
     return redirect("notifications")
+
+
+@csrf_exempt
+def reminders_task(request):
+    """Start the automatic reminder check from an outside scheduler (cron-job.org, UptimeRobot, GitHub Actions...).
+
+    Needs REMINDER_TOKEN to be set; without one the address does not exist. The token is checked in constant time.
+    """
+    token = getattr(settings, "REMINDER_TOKEN", "")
+    given = request.GET.get("token") or request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token or not given or not hmac.compare_digest(token.encode(), given.encode()):
+        raise Http404
+    results = scheduler.run_if_due(interval=timedelta(minutes=10))  # an outside scheduler cannot make it send more than every 10 minutes
+    if results is None:
+        return JsonResponse({"ran": False, "reason": "A check ran in the last 10 minutes."})
+    sent = sum(1 for item in results if item["sent"])
+    return JsonResponse({"ran": True, "due": len(results), "sent": sent, "failed": len(results) - sent})

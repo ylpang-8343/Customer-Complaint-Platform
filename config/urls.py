@@ -13,6 +13,7 @@ admin.site.site_header = "BEST Group Complaint Platform administration"
 admin.site.site_title = "Complaint Platform admin"
 
 urlpatterns = [
+    path("tasks/reminders/", complaint_views.reminders_task, name="reminders_task"),
     path("healthz/", lambda request: HttpResponse("ok", content_type="text/plain"), name="healthz"),
     path("", complaint_views.home, name="home"),
     path("help/", complaint_views.help_page, name="help"),
@@ -25,6 +26,8 @@ urlpatterns = [
     path("masterdata/", masterdata.masterdata_home, name="masterdata_home"),
     path("masterdata/<slug:slug>/template.xlsx", masterdata.masterdata_template, name="masterdata_template"),
     path("masterdata/<slug:slug>/upload/", masterdata.masterdata_upload, name="masterdata_upload"),
+    path("masterdata/<slug:slug>/manage/", masterdata.masterdata_manage, name="masterdata_manage"),
+    path("masterdata/<slug:slug>/<int:pk>/", masterdata.masterdata_entry, name="masterdata_entry"),
     path("import/", imports.import_home, name="import_home"),
     path("import/template.xlsx", imports.import_template, name="import_template"),
     path("import/<int:pk>/", imports.import_preview, name="import_preview"),

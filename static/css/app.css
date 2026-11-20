@@ -283,3 +283,9 @@ button:disabled, .button:disabled { opacity: .55; cursor: not-allowed; }
   main { padding: 1rem; }
   .scope { padding: .5rem 1rem; }
 }
+
+.button.danger { color: var(--bad); border-color: var(--bad); }
+.button.danger:hover { background: var(--bad); color: #fff; }
+.inline-actions { display: flex; gap: .4rem; flex-wrap: wrap; margin: 0; }
+.daterange { display: flex; gap: .5rem; flex-wrap: nowrap; }
+.daterange input { min-width: 0; }

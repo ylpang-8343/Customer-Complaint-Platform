@@ -35,6 +35,11 @@ if os.environ.get("RENDER_EXTERNAL_URL"):
 # A submitted complaint goes straight to the PICs of the department the routing table names (and the Coordinator is
 # copied). Turn it off to have every complaint wait for the Coordinator to assign it.
 AUTO_ASSIGN = env_bool("AUTO_ASSIGN", True)
+# The platform sends the due reminders by itself, at most once per REMINDER_CHECK_MINUTES while the site is awake. See
+# complaints/scheduler.py. REMINDER_TOKEN lets an outside scheduler start the same check at /tasks/reminders/?token=...
+AUTO_REMINDERS = env_bool("AUTO_REMINDERS", not DEBUG)
+REMINDER_CHECK_MINUTES = int(os.environ.get("REMINDER_CHECK_MINUTES", "60"))
+REMINDER_TOKEN = os.environ.get("REMINDER_TOKEN", "")
 
 # A public demo: the sign-in page lists the demo users and their shared password.
 DEMO_MODE = env_bool("DEMO_MODE", False)
@@ -60,6 +65,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "audit.middleware.CurrentActorMiddleware",
+    "complaints.middleware.AutoReminderMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

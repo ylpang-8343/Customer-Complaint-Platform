@@ -71,7 +71,7 @@ Factories B to E have the same pattern (`fc.pic`, `fd.hod` and so on).
 
 They take about two minutes (the PDF and import tests are the slowest) and use a temporary database and a temporary folder for uploads, so they never touch `db.sqlite3` or `media/`. Emails go to an in-memory outbox, which the tests read.
 
-**Expected result: 373 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
+**Expected result: 393 passed.** The same tests pass on PostgreSQL: set `DATABASE_URL` (or the `POSTGRES_*` variables) to a database you can create test databases in, and run `pytest` again. Anything else is a defect (or a change that needs its tests updated).
 
 | File | Tests | What it checks |
 |---|---|---|
@@ -89,7 +89,8 @@ They take about two minutes (the PDF and import tests are the slowest) and use a
 | `tests/test_reply_email.py` | 15 | The reply to the customer: the subject and body follow `docs/emailTemplate.md` (parts in order, sections left out when empty, vessel or vehicle, greeting, signature, company name), and the investigation summary and conclusion are entered, kept, shown to reviewers and in the PDF |
 | `tests/test_email_delivery.py` | 20 | Which mail service the settings choose, "Not delivered" when no mail server is set up (the warning, the label, the filter), the test email, and a mail service over HTTPS with the network call replaced (the request, a refusal and its reason) |
 | `tests/test_access_routing.py` | 51 | Access by factory for staff, traders and group PICs (and what changes when the admin changes a user's factories), the routing table, automatic assignment and its emails (only the Coordinator copied), the Coordinator reassigning, the department's HOD reviewing |
-| `tests/test_feedback_ui.py` | 36 | The form labels and the five-part description, the master data upload (templates, add and update, a bad file saves nothing, who may upload), My complaints (ten a page, the page size, the columns, the person each complaint waits for, Days Open, filters), the dashboard by factory, short reasons and paging, the log and export filters, the reply as a PDF and in the audit pack, no future dates on the later steps |
+| `tests/test_feedback_ui.py` | 46 | The form labels and the five-part description, the master data upload (templates, add and update, a bad file saves nothing, who may upload), My complaints (ten a page, the page size, the columns, the person each complaint waits for, Days Open, filters), the dashboard by factory, short reasons and paging, the log and export filters, the reply as a PDF and in the audit pack, no future dates on the later steps |
+| `tests/test_auto_reminders.py` | 10 | The automatic reminders: the check sends what is due, a second check in the same interval sends nothing (so several workers never send twice), a request starts it only when it is on, a failing check never breaks a page, the token address for an outside scheduler (no token, wrong token, the right one, not more often than every 10 minutes), and what the Notifications page says |
 | `tests/test_import.py` | 33 | The import template, who may import, the check of every kind of mistake, references in date order, the stage from the dates, related records, all-or-nothing, no emails, reminders, duplicates, discarding, and how imported complaints show in the lists, the log and the report |
 
 ## 4. Manual test script
@@ -330,7 +331,7 @@ Get-Content tools\screenshots\demo_data.py | .venv\Scripts\python manage.py shel
 2. Tick *Factory A* and *Factory B*, set *Lodged from* and *Lodged to*, and choose **Apply**.
 3. Sign in as `fa.pic` and as `sales`.
 
-Expected: Total = Valid + Invalid + Under investigation + Deleted. Valid complaints are *in progress* until closed. The charts (including *Complaints by factory*), the aging bands, the paged table of where each open complaint is waiting and the short reasons for invalid and deleted complaints (each a link to the complaint) all follow the same filter. *Show* sets 10, 25, 50 or 100 rows a page. `fa.pic` sees only Factory A and no choice of other factories; `sales` sees only the complaints they lodged. Drafts are never counted.
+Expected: Total = Valid + Invalid + Under investigation + Deleted. Valid complaints are *in progress* until closed. The dashboard no longer repeats the list of complaints: one line points to the *Complaint log*, which keeps the filters. The charts (including *Complaints by factory*), the aging bands, the paged table of where each open complaint is waiting and the short reasons for invalid and deleted complaints (each a link to the complaint) all follow the same filter. *Show* sets 10, 25, 50 or 100 rows a page. `fa.pic` sees only Factory A and no choice of other factories; `sales` sees only the complaints they lodged. Drafts are never counted.
 
 ![Dashboard](img/50-dashboard.png) ![Filtered](img/51-dashboard-filtered.png) ![Dark mode](img/54-dashboard-dark.png)
 
@@ -500,6 +501,18 @@ Expected: ten complaints a page to start with and *Page 1 of 2 (12 complaints)*;
 
 - [ ] Pass
 
+**T38 Third round: master data delete, automatic reminders, the HOD, the filters** (`mr`, `fa.pic`, `fa.hod`, `fa.qahod`)
+1. As `mr` open **Master data** > *Customers* > **Manage the list**. Search, set an entry inactive and active again, and delete one that no complaint uses. Try to delete `C0001` after a complaint was lodged for it.
+2. Open **Notifications** as `mr`. Make a complaint wait more than 3 days (the demo data has some), then wait for the next check, or open the page of the outside scheduler (see Deployment.md).
+3. Lodge a *Quality* complaint as `sales` (it goes to QA). As `mr` choose **Change PICs**, tick only `fa.pic` (Production), leave the Department as it is, and choose **Assign and send**. Then, as `fa.pic`, enter the findings and **Submit to HOD**.
+4. Open *My complaints* and the *Dashboard*.
+
+Expected: each unused entry shows **Delete** (with a confirmation); an entry that complaints use shows a greyed Delete and *Set inactive* instead. Notifications says *Reminders are sent automatically* with the last check, and a PIC gets the reminder email without anyone pressing a button. After step 3 the message says *The Production HOD reviews the findings*, the findings go to `fa.hod` and not to `fa.qahod`, and only `fa.hod` sees the complaint under *Waiting for my action*. The dashboard has no *List of complaints* any more, and in the filters *From* and *To* sit side by side before *Complaint category*, *Buyer* and *Product*.
+
+![Manage the list](img/80-masterdata-manage.png) ![Automatic reminders](img/81-notifications-auto.png)
+
+- [ ] Pass
+
 ## 5. Which scenario tests which part of the proposal
 
 | Proposal | Scenarios |
@@ -522,7 +535,7 @@ Expected: ten complaints a page to start with and *Page 1 of 2 (12 complaints)*;
 | Running the demo on a host | T32 |
 | Access by role and factory | T02, T06, T11, T22, T23 |
 | Progress and history | T16 |
-| Demo feedback: several factories, routing, lists, columns, dates | T34, T35, T36, T37 |
+| Demo feedback: several factories, routing, lists, columns, dates | T34, T35, T36, T37, T38 |
 
 ## 6. Useful checks while testing
 
@@ -551,7 +564,7 @@ It runs eight scripts one after the other, prints how many screenshots were save
 | `reports.py` | 50 to 56 |
 | `documents.py` | 57 to 66 (the import, the PDF report and the audit pack) |
 | `deployment.py` | 67 to 70 (the demo sign-in page, sending reminders from the page) |
-| `feedback.py` | 71 to 79 (the feedback of the demo: forms, automatic assignment, master data, columns, dashboard, reply file, trader) |
+| `feedback.py` | 71 to 81 (the feedback of the demo: forms, automatic assignment, master data and its delete, columns, dashboard, reply file, trader, automatic reminders) |
 
 ## 8. Not covered
 

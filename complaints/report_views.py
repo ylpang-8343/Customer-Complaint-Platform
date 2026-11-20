@@ -31,7 +31,6 @@ def _scope(request):
 def dashboard(request):
     form, queryset, scope, querystring = _scope(request)
     size = form.per_page(DASHBOARD_LIST_SIZE)
-    recent = reporting.log_queryset(queryset).order_by("-created_at", "-id")[:size]
     data = reporting.dashboard(queryset)
     open_page = Paginator(data.pop("open_rows"), size).get_page(request.GET.get("open_page"))
     other = request.GET.copy()
@@ -44,7 +43,6 @@ def dashboard(request):
             "querystring": querystring,
             "filtered": bool(querystring),
             "scope_text": reporting.period_text(*scope),
-            "recent": recent,
             "open_page": open_page,
             "open_querystring": other.urlencode(),
             **data,

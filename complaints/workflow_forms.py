@@ -39,7 +39,7 @@ class AssignForm(FilesMixin, forms.Form):
     pics = PICChoiceField(queryset=FactoryPIC.objects.none(), widget=forms.CheckboxSelectMultiple, label="PICs")
     department = forms.ModelChoiceField(
         queryset=Department.objects.all(), required=False, label="Department",
-        help_text="The department that investigates. Its HOD reviews the findings. The routing table's choice is filled in.",
+        help_text="The HOD of this department reviews the findings. It follows the PICs you tick: it is always the department of the investigating PICs.",
     )  # fmt: skip
     remarks = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     attachments = MultipleFileField(required=False, label="Attachments")

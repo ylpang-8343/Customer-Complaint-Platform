@@ -765,6 +765,17 @@ def import_path(instance, filename):
     return f"imports/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 
+class JobRun(models.Model):
+    """When a repeating job last ran, so that only one worker runs it in each interval (see ``scheduler``)."""
+
+    name = models.CharField(max_length=40, unique=True)
+    last_run_at = models.DateTimeField()
+    last_result = models.CharField(max_length=200, blank=True)
+
+    def __str__(self):
+        return f"{self.name}: {self.last_run_at:%Y-%m-%d %H:%M}"
+
+
 class ImportBatch(models.Model):
     """One spreadsheet of past complaints: kept so the import can be checked first and traced afterwards."""
 

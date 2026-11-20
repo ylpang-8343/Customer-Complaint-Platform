@@ -58,7 +58,12 @@ A user can be given several factories in the admin panel (Settings > Users: role
 
 A complaint that has waited for the same person for longer than its reminder days (3 unless the Coordinator
 changed it for that complaint type in Settings) gets a reminder email, repeated every that-many days until
-somebody acts. Run the job once a day:
+somebody acts. **The platform sends them by itself**: while the site is awake it checks at most once an hour
+(`REMINDER_CHECK_MINUTES`) and emails what is due, once even with several workers, and the Notifications page shows
+the last check. `AUTO_REMINDERS=false` switches it off. A free host sleeps when nobody visits, so to get reminders at a
+chosen time even then, set `REMINDER_TOKEN` and let a free outside scheduler (cron-job.org, UptimeRobot) open
+`https://your-site/tasks/reminders/?token=...` once a day: it wakes the site and starts the same check. The
+Coordinator can also send them at once from the Notifications page, or you can run the job from a scheduler:
 
 ```powershell
 .venv\Scripts\python manage.py send_reminders             # send what is due
@@ -77,8 +82,7 @@ management open it from the menu (Notifications), and each complaint shows its o
 
 **Dashboard** (menu: Dashboard) shows the figures of the complaints a user may see, with one filter row for factories and the
 lodged period: the summary tiles, complaints by type, where the complaints are in the process, valid complaints by type,
-open complaint aging, complaints by factory, where each open complaint is waiting and who for (a page at a time), a short reason for invalid and deleted complaints with a link, and the
-latest complaints. The filter row also takes status, complaint category, buyer, product, result and a search text, and sets the page size (10 to start with).
+open complaint aging, complaints by factory, where each open complaint is waiting and who for (a page at a time) and a short reason for invalid and deleted complaints with a link. The list of every complaint, with the Excel export, is on the Complaint log page. The filter row also takes status, complaint category, buyer, product, result and a search text, and sets the page size (10 to start with).
 
 **Complaint log** (menu: Complaint log) lists every complaint in the columns of the current log, in the same order, with the
 CAR number left out because the complaint reference replaces it. **Export to Excel** downloads the same table, with the same filters as the screen, as an `.xlsx`
@@ -125,7 +129,7 @@ Taken from the running app with the demo data (`docs/img/`, made by `tools/scree
 | The whole process for one complaint, as each person sees it: Coordinator's list and assignment (a sample needs a lab PIC), laboratory section, incomplete findings, SCAR, pending SCAR, returned SCAR, HOD review and return, FM rejection and approval, reply to the customer, closing, the finished record with its history, and the phone view | `25` to `43` |
 | Dashboard, the complaint log and its Excel file, with the filter row and the phone view | `50` to `56` |
 | The demo site: the sign-in page that lists the demo users, and sending due reminders from the Notifications page | `67` to `70` |
-| The feedback of the demo: the shipment and local forms, a complaint assigned by the routing table, the Master data page and an upload, My complaints with the new columns, the dashboard, the reply as a file, a trader's list | `71` to `79` |
+| The feedback of the demo: the shipment and local forms, a complaint assigned by the routing table, the Master data page and an upload, My complaints with the new columns, the dashboard, the reply as a file, a trader's list, managing a master data list, the automatic reminders | `71` to `81` |
 | PDF report, audit pack and the import of past complaints: the Import page, a file with mistakes, the corrected file, the result, an imported complaint, three pages of the PDF report, the phone view | `57` to `66` |
 | Reminders and notifications: the list with the Overdue tile and day counts, the log (sent and failed reminders, the failed ones with their reason, one email opened), an overdue complaint with its notifications, the phone view | `44` to `49` |
 
@@ -139,7 +143,7 @@ restyled. Everything else uses the shared layout in `templates/base.html` and
 .venv\Scripts\python -m pytest
 ```
 
-All 373 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
+All 393 automated tests should pass, on SQLite and on PostgreSQL. The **[Test Guide](docs/TestGuide.md)** explains what each test file covers, gives a
 manual test script for every step of the process (with the screenshot of what you should see), and says how the images in
 `docs/img/` are regenerated (`python tools/screenshots/run_all.py`).
 

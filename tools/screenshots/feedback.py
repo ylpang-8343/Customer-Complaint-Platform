@@ -1,6 +1,7 @@
 """The feedback of the demo in a real browser: automatic assignment, several factories, the master data upload,
 the new columns and filters, the dashboard and the reply as a file."""
 import datetime
+import os
 import re
 import shutil
 import subprocess
@@ -42,7 +43,7 @@ made = subprocess.run(
 print((made.stdout + made.stderr).strip().splitlines()[-1])
 
 server = subprocess.Popen(
-    [PY, "manage.py", "runserver", "8772", "--noreload"], cwd=PROJECT, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
+    [PY, "manage.py", "runserver", "8772", "--noreload"], cwd=PROJECT, env={**os.environ, "AUTO_REMINDERS": "1"}, stdout=open(LOG, "w"), stderr=subprocess.STDOUT,
 )
 failures = []
 
@@ -159,9 +160,21 @@ try:
         check("the upload reports what it added and updated", "2 added" in page.content() and "unchanged" in page.content())
         shot(page, "75-masterdata-uploaded")
 
+        # Managing a list: delete what is not used, keep what complaints use
+        page.goto(BASE + "/masterdata/customers/manage/")
+        check("the list has a Delete button for each entry", page.locator("button:has-text('Delete')").count() >= 10)
+        check("an entry that complaints use cannot be deleted", page.locator("button[disabled]:has-text('Delete')").count() >= 1)
+        shot(page, "80-masterdata-manage")
+        page.goto(BASE + "/masterdata/customers/manage/?q=November")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("tr:has-text('November Trading') button:has-text('Delete')").click()
+        page.wait_for_load_state()
+        check("an unused customer is deleted after a confirmation", "was deleted" in page.content() and "November Trading" not in page.locator("table.list").inner_text())
+
         page.goto(BASE + "/")
         heads = [h.strip().title() for h in page.locator("table.list thead th").all_inner_texts()]
         check("My complaints has the columns of the feedback", heads == ["Reference", "Factory", "Buyer", "Product", "Type", "Status", "Waiting For", "Days Open"])
+        check("the From and To dates are in one block", page.locator(".filters .daterange input").count() == 2)
         check("My complaints shows 10 rows to start with", page.locator("table.list tbody tr").count() == 10)
         check("My complaints names the person it waits for", "PIC - " in page.content())
         check("the pager gives the total", re.search(r"Page 1 of \d+ \(\d+ complaints\)", page.content()) is not None)
@@ -171,7 +184,12 @@ try:
         page.wait_for_load_state()
         check("the page size can be changed", page.locator("table.list tbody tr").count() > 10)
 
+        page.goto(BASE + "/notifications/")
+        check("the Notifications page says reminders are sent automatically", "Reminders are sent automatically" in page.content())
+        shot(page, "81-notifications-auto", full=False)
+
         page.goto(BASE + "/dashboard/")
+        check("the dashboard no longer repeats the complaint log", "List of complaints" not in page.content())
         check("the dashboard counts by factory", "Complaints by factory" in page.content())
         check("the reasons link to the complaints", page.locator("section:has-text('Invalid and deleted') table a").count() >= 1)
         shot(page, "77-dashboard-feedback")

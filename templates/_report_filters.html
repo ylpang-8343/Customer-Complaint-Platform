@@ -2,8 +2,10 @@
   {% if form.factories.field.queryset.exists %}
   <div class="chips"><label class="group">Factories</label>{{ form.factories }}</div>
   {% endif %}
-  <div><label for="{{ form.date_from.id_for_label }}">Lodged from</label>{{ form.date_from }}</div>
-  <div><label for="{{ form.date_to.id_for_label }}">Lodged to</label>{{ form.date_to }}</div>
+  <div class="daterange">
+    <div><label for="{{ form.date_from.id_for_label }}">Lodged from</label>{{ form.date_from }}</div>
+    <div><label for="{{ form.date_to.id_for_label }}">Lodged to</label>{{ form.date_to }}</div>
+  </div>
   <div><label for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}</div>
   <div><label for="{{ form.complaint_type.id_for_label }}">Complaint category</label>{{ form.complaint_type }}</div>
   <div><label for="{{ form.customer.id_for_label }}">Buyer</label>{{ form.customer }}</div>

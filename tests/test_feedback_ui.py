@@ -6,11 +6,12 @@ import re
 import zipfile
 
 import pytest
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
-from accounts.models import Factory, FactoryPIC
+from accounts.models import Department, Factory, FactoryPIC
 from complaints import masterdata, people, reporting, workflow
 from complaints.models import Complaint, ComplaintSubType, ComplaintType, Customer, PackSize, Product
 from complaints.report_pdf import audit_pack, reply_pdf
@@ -260,8 +261,8 @@ def test_the_export_follows_the_filters_of_the_screen(portfolio, as_user):
     assert len(references(everything)) == 4
     assert references(only_deleted) == {portfolio["deleted"].reference}
     assert references(only_b) == {portfolio["b"].reference}
-    assert reverse("log_export") in mr.get(reverse("dashboard"), {"status": "deleted"}).content.decode()
-    assert "status=deleted" in mr.get(reverse("dashboard"), {"status": "deleted"}).content.decode()
+    page = mr.get(reverse("complaint_log"), {"status": "deleted"}).content.decode()
+    assert f'href="{reverse("log_export")}?status=deleted"' in page  # the export button carries the filter of the screen
 
 
 # --- The reply as a file --------------------------------------------------------------------------------------------
@@ -357,3 +358,127 @@ def test_the_laboratory_pic_is_marked_in_the_list(as_user, user_of):
     html = as_user("mr").get(reverse("complaint_assign", args=[complaint.pk])).content.decode()
     assert re.search(r"Lab PIC \(QA\) \[laboratory\]: Sample Lab PIC FA", html)
     assert "Operation PIC (Operation): Sample Operation PIC FA" in html and "[laboratory]: Sample Operation" not in html
+
+
+# --- The fourth round: the HOD follows the PICs -----------------------------------------------------------------------------
+
+
+def _production_pic_entry():
+    return FactoryPIC.objects.get(factory__code="FA", user__username="fa.pic")
+
+
+def test_the_hod_who_reviews_is_the_hod_of_the_pics_even_when_the_department_field_was_left_alone(as_user, user_of, settings):
+    """The tester's case: the Production PIC submitted to her HOD but the QA HOD received it."""
+    settings.AUTO_ASSIGN = True
+    quality = ComplaintType.objects.get(name="Product Quality")
+    complaint = submitted(as_user, complaint_type=quality.pk, complaint_sub_type=ComplaintSubType.objects.filter(complaint_type=quality).first().pk)
+    complaint = fresh(complaint)
+    workflow.auto_assign(complaint)
+    complaint = fresh(complaint)
+    assert complaint.department.name == "QA"
+    # The Coordinator moves it to the Production PIC but leaves the Department as it was (QA)
+    entry = _production_pic_entry()
+    response = as_user("mr").post(
+        reverse("complaint_assign", args=[complaint.pk]),
+        {"pics": [entry.pk], "department": complaint.department_id, "remarks": "Production to handle"},
+        follow=True,
+    )
+    assert "The Production HOD reviews the findings" in response.content.decode()
+    complaint = fresh(complaint)
+    assert complaint.department.name == "Production"
+    workflow.save_investigation(complaint, user_of("fa.pic"), "Seal failed", "Replaced", "Changed supplier", "internal")
+    workflow.submit_to_hod(fresh(complaint), user_of("fa.pic"))
+    complaint = fresh(complaint)
+    assert people.hods(complaint) == [user_of("fa.hod")]
+    waiting = lambda name: complaint in Complaint.objects.filter(workflow.waiting_for_me(user_of(name)))
+    assert waiting("fa.hod") and not waiting("fa.qahod")
+    assert "fa.hod@example.com" in [address for message in mail.outbox[-1:] for address in message.to]
+
+
+def test_a_laboratory_pic_does_not_move_the_review_to_the_qa_hod(as_user, user_of):
+    complaint = submitted(as_user, sample_sent="True")
+    entries = FactoryPIC.objects.filter(factory__code="FA", user__username__in=["fa.pic", "fa.lab"])
+    workflow.assign(complaint, user_of("mr"), entries, "", department=Department.objects.get(name="QA"))
+    complaint = fresh(complaint)
+    assert complaint.department.name == "Production"  # the investigating PIC is Production; the lab PIC only joins
+    assert people.hods(complaint) == [user_of("fa.hod")]
+
+
+def test_a_chosen_department_that_matches_the_pics_is_kept(as_user, user_of):
+    complaint = submitted(as_user)
+    workflow.assign(complaint, user_of("mr"), FactoryPIC.objects.filter(factory__code="FA", user__username="fa.oppic"), "", department=Department.objects.get(name="Operation"))
+    assert fresh(complaint).department.name == "Operation"
+    assert people.hods(fresh(complaint)) == [user_of("fa.ophod")]
+
+
+# --- Deleting master data ---------------------------------------------------------------------------------------------------
+
+
+def test_only_the_coordinator_manages_the_lists(as_user):
+    for username in ("sales", "fa.pic", "management"):
+        assert as_user(username).get(reverse("masterdata_manage", args=["customers"])).status_code == 302
+        assert as_user(username).post(reverse("masterdata_entry", args=["customers", Customer.objects.first().pk]), {"action": "delete"}).status_code == 302
+    assert Customer.objects.filter(code="C0001").exists()
+
+
+def test_the_manage_page_lists_search_and_page_the_entries(as_user):
+    client, url = as_user("mr"), reverse("masterdata_manage", args=["customers"])
+    html = client.get(url).content.decode()
+    assert "Example Buyer Ltd" in html and "Delete" in html and "Page 1 of 2 (14 items)" in html
+    assert "Example Buyer Ltd" not in client.get(url, {"q": "Alpha"}).content.decode()
+    assert "Alpha Foods Ltd" in client.get(url, {"q": "C0002"}).content.decode()
+    Customer.objects.filter(code="C0002").update(is_active=False)
+    assert "Alpha Foods Ltd" in client.get(url, {"state": "inactive"}).content.decode()
+
+
+def test_an_unused_entry_can_be_deleted_and_a_used_one_cannot(as_user):
+    complaint = submitted(as_user)  # uses C0001, Sample Product and Flexibag
+    client = as_user("mr")
+    unused = Customer.objects.get(code="C0014")
+    response = client.post(reverse("masterdata_entry", args=["customers", unused.pk]), {"action": "delete"}, follow=True)
+    assert "was deleted" in response.content.decode() and not Customer.objects.filter(code="C0014").exists()
+    used = Customer.objects.get(pk=complaint.customer_id)
+    response = client.post(reverse("masterdata_entry", args=["customers", used.pk]), {"action": "delete"}, follow=True)
+    assert "cannot be deleted" in response.content.decode() and Customer.objects.filter(pk=used.pk).exists()
+    assert 'disabled title="Used by 1 complaint' in client.get(reverse("masterdata_manage", args=["customers"]), {"q": "C0001"}).content.decode()
+
+
+def test_products_and_pack_sizes_can_be_deleted_and_deactivated(as_user):
+    client = as_user("mr")
+    product = Product.objects.get(code="P0007")
+    client.post(reverse("masterdata_entry", args=["products", product.pk]), {"action": "deactivate"})
+    assert Product.objects.get(pk=product.pk).is_active is False
+    client.post(reverse("masterdata_entry", args=["products", product.pk]), {"action": "activate"})
+    assert Product.objects.get(pk=product.pk).is_active is True
+    client.post(reverse("masterdata_entry", args=["products", product.pk]), {"action": "delete"})
+    pack = PackSize.objects.get(name="IBC 1000 L")
+    client.post(reverse("masterdata_entry", args=["pack-sizes", pack.pk]), {"action": "delete"})
+    assert not Product.objects.filter(code="P0007").exists() and not PackSize.objects.filter(name="IBC 1000 L").exists()
+    assert as_user("mr").get(reverse("masterdata_entry", args=["products", 999999])).status_code == 405  # a link cannot delete
+
+
+def test_the_master_data_page_links_to_manage_each_list(as_user):
+    html = as_user("mr").get(reverse("masterdata_home")).content.decode()
+    for slug in ("customers", "products", "pack-sizes"):
+        assert reverse("masterdata_manage", args=[slug]) in html
+
+
+# --- The third part: a simpler dashboard and tidier filters ------------------------------------------------------------------
+
+
+def test_the_dashboard_no_longer_repeats_the_complaint_log(portfolio, as_user):
+    html = as_user("mr").get(reverse("dashboard"), {"status": "deleted"}).content.decode()
+    assert "List of complaints" not in html and "Open the complaint log" not in html
+    assert 'href="/log/?status=deleted"' in html  # one pointer to the log, which keeps the filters
+    assert "Where each open complaint is waiting" in html
+
+
+def test_the_from_and_to_dates_stay_together_before_category_buyer_and_product(as_user):
+    html = as_user("mr").get(reverse("home")).content.decode()
+    form = html.split('<form method="get" class="filters">')[1].split("</form>")[0]
+    order = [form.index(f'for="id_{name}"') for name in ("factory", "status", "date_from", "date_to", "complaint_type", "customer", "product")]
+    assert order == sorted(order)
+    group = form.split('<div class="daterange">')[1].split("</div>\n    </div>")[0]
+    assert "id_date_from" in group and "id_date_to" in group  # in one block that does not wrap apart
+    report = as_user("mr").get(reverse("complaint_log")).content.decode()
+    assert report.count('<div class="daterange">') == 1

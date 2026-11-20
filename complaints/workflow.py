@@ -17,7 +17,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from accounts.models import FactoryPIC
+from accounts.models import FactoryPIC, Role
 
 from . import emails, people
 from .models import (
@@ -224,10 +224,30 @@ def _require(allowed, message="You cannot do this now."):
 # --- Step 3: the Coordinator assigns the PICs ---------------------------------------------
 
 
+def _department_of_assignment(complaint, pic_entries, chosen=None):
+    """The department whose HOD reviews the findings: it must be the department of the PICs who investigate.
+
+    A laboratory PIC (QA) can join a complaint of another department, so the laboratory PICs do not decide it.
+    If the department chosen on the form is not one of the PICs' own departments (the Coordinator changed the PICs but
+    left the department as it was), the PICs win: otherwise the Production PIC's findings would go to the QA HOD.
+    """
+    investigators = [entry for entry in pic_entries if entry.department_id and entry.user.role != Role.LAB]
+    own = investigators or [entry for entry in pic_entries if entry.department_id]
+    candidates = list(dict.fromkeys(entry.department for entry in own))
+    routed = RoutingRule.department_for(complaint)
+    if chosen is not None and (not candidates or chosen in candidates):
+        return chosen
+    if routed is not None and (not candidates or routed in candidates):
+        return routed
+    if candidates:
+        return candidates[0]
+    return chosen or routed or complaint.department
+
+
 def assign(complaint, actor, pic_entries, remarks="", files=(), department=None):
     """Choose the PICs. Only PICs who are new to the complaint are emailed.
 
-    The department (which HOD reviews) is the one chosen, else the routing table's, else the first PIC's.
+    The department (which HOD reviews) follows the PICs chosen; see ``_department_of_assignment``.
     """
     _require(can_assign(actor, complaint), "Only the Coordinator can assign a complaint that has been submitted.")
     pic_entries = list(pic_entries)
@@ -254,12 +274,7 @@ def assign(complaint, actor, pic_entries, remarks="", files=(), department=None)
             complaint.received_by = actor
             complaint.acknowledged_at = timezone.now()
         complaint.coordinator_remarks = remarks
-        complaint.department = (
-            department
-            or RoutingRule.department_for(complaint)
-            or next((entry.department for entry in pic_entries if entry.department_id), None)
-            or complaint.department
-        )
+        complaint.department = _department_of_assignment(complaint, pic_entries, department)
         store_files(complaint, files, actor, Attachment.Section.COORDINATOR)
         names = ", ".join(f"{entry.user} ({entry.designation})" for entry in pic_entries)
         _move(complaint, actor, Action.ASSIGNED, STATUS.INVESTIGATION if first_time else None, comment=names)

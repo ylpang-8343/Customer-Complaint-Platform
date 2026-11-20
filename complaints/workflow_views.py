@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from . import texts, workflow
+from . import people, texts, workflow
 from .models import Attachment, Complaint, Scar
 from .pdf import scar_pdf
 from .report_pdf import audit_pack, complaint_report_pdf, reply_filename, reply_pdf
@@ -81,7 +81,9 @@ def complaint_assign(request, pk):
             except WorkflowError as error:
                 _show_errors(form, error)
             else:
-                _done(request, f"{complaint.reference} was assigned.", notified)
+                reviewers = ", ".join(str(user) for user in people.hods(complaint))
+                department = f" The {complaint.department} HOD reviews the findings ({reviewers})." if complaint.department_id and reviewers else ""
+                _done(request, f"{complaint.reference} was assigned.{department}", notified)
                 return redirect("complaint_detail", pk=complaint.pk)
     else:
         form = AssignForm(complaint=complaint)

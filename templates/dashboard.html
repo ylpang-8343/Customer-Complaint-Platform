@@ -6,6 +6,7 @@
 <section class="card">
   {% url 'dashboard' as reset_url %}
   {% include "_report_filters.html" %}
+  <p class="footnote">To list every complaint or export it to Excel, open the <a href="{% url 'complaint_log' %}{% if querystring %}?{{ querystring }}{% endif %}">complaint log</a>: it keeps these filters.</p>
 </section>
 
 <div class="kpis">
@@ -95,31 +96,4 @@
 </section>
 {% endif %}
 
-<section class="card">
-  <h2 class="section-title">List of complaints
-    <span class="actions-right">
-      <a class="button" href="{% url 'log_export' %}{% if querystring %}?{{ querystring }}{% endif %}">Export to Excel</a>
-      <a class="button primary" href="{% url 'complaint_log' %}{% if querystring %}?{{ querystring }}{% endif %}">Open the complaint log</a>
-    </span>
-  </h2>
-  <div class="table-wrap">
-    <table class="list">
-      <thead><tr><th>Reference</th><th>Factory</th><th>Buyer</th><th>Type</th><th>Lodged</th><th>Status</th></tr></thead>
-      <tbody>
-        {% for c in recent %}
-        <tr>
-          <td><a href="{% url 'complaint_detail' c.pk %}">{{ c.reference }}</a></td>
-          <td>{{ c.factory }}</td><td>{{ c.buyer }}</td>
-          <td>{{ c.complaint_sub_type|default:c.complaint_type|default:"" }}</td>
-          <td>{{ c.created_at|date:"j M Y" }}</td>
-          <td><span class="status status-{{ c.status_key }}">{{ c.status_label }}</span>{% if c.hod_decision and not c.is_deleted %} <span class="tag">{{ c.get_hod_decision_display }}</span>{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr><td class="empty" colspan="6">No complaints in this view.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <p class="footnote">The latest {{ recent|length }}. The complaint log has every complaint, in the columns of the current log.</p>
-</section>
 {% endblock %}

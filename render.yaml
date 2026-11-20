@@ -28,6 +28,12 @@ services:
           property: connectionString
       # A demo: show the demo users on the sign-in page and load twelve demo complaints at each deploy
       # (only when the database has none). Remove both for a real site.
+      # Reminders are sent by the platform itself (at most once an hour while the site is awake). REMINDER_TOKEN lets a free
+      # outside scheduler (cron-job.org, UptimeRobot) wake the site and start the check: see docs/Deployment.md.
+      - key: AUTO_REMINDERS
+        value: "true"
+      - key: REMINDER_TOKEN
+        generateValue: true
       - key: DEMO_MODE
         value: "true"
       - key: DEMO_DATA
